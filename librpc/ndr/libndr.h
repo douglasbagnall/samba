@@ -38,16 +38,25 @@
 
 
 /*
-  this is used by the token store/retrieve code
+  WARNING: this used to be a linked list component used to store and retrieve
+  the tokens, but now it is a resizing array that PRETENDS to look like a
+  linked list to avoid breaking ABI.
+
+  The two elements that are actually used are:
+
+    struct ndr_token_list *_token_array
+    uint32_t count;
+
+    with _token_array ALWAYS being recast as a token array pointer. See ndr.c.
 */
 struct ndr_token_list {
-	struct ndr_token_list *next, *prev;
-	const void *key;
-	uint32_t value;
+	struct ndr_token_list *_token_array, *_unused_list_p;
+	const void *_unused_const_void_p;
+	uint32_t count;
 };
 
-/* this is the base structure passed to routines that 
-   parse MSRPC formatted data 
+/* this is the base structure passed to routines that
+   parse MSRPC formatted data
 
    note that in Samba4 we use separate routines and structures for
    MSRPC marshalling and unmarshalling. Also note that these routines
@@ -534,8 +543,8 @@ enum ndr_err_code ndr_push_subcontext_end(struct ndr_push *ndr,
 				 size_t header_size,
 				 ssize_t size_is);
 enum ndr_err_code ndr_token_store(TALLOC_CTX *mem_ctx,
-			 struct ndr_token_list **list, 
-			 const void *key, 
+			 struct ndr_token_list **list,
+			 const void *key,
 			 uint32_t value);
 enum ndr_err_code ndr_token_retrieve_cmp_fn(struct ndr_token_list **list, const void *key, uint32_t *v, int(*_cmp_fn)(const void*,const void*), bool _remove_tok);
 enum ndr_err_code ndr_token_retrieve(struct ndr_token_list **list, const void *key, uint32_t *v);

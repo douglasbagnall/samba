@@ -138,11 +138,13 @@ _PUBLIC_ enum ndr_err_code ndr_pull_pop(struct ndr_pull *ndr)
 		return ndr_pull_error(ndr, NDR_ERR_RELATIVE,
 				      "%s", __location__);
 	}
-	if (ndr->relative_list != NULL) {
+	if (ndr->relative_list != NULL &&
+	    ndr->relative_list->count != 0) {
 		return ndr_pull_error(ndr, NDR_ERR_RELATIVE,
 				      "%s", __location__);
 	}
-	if (ndr->relative_base_list != NULL) {
+	if (ndr->relative_base_list != NULL &&
+	    ndr->relative_base_list->count != 0) {
 		return ndr_pull_error(ndr, NDR_ERR_RELATIVE,
 				      "%s", __location__);
 	}
@@ -914,40 +916,96 @@ _PUBLIC_ enum ndr_err_code ndr_push_subcontext_end(struct ndr_push *ndr,
 	return NDR_ERR_SUCCESS;
 }
 
+struct ndr_token {
+       const void *key;
+       uint32_t value;
+};
+
 /*
   store a token in the ndr context, for later retrieval
 */
 _PUBLIC_ enum ndr_err_code ndr_token_store(TALLOC_CTX *mem_ctx,
-			 struct ndr_token_list **list, 
-			 const void *key, 
-			 uint32_t value)
+					   struct ndr_token_list **list,
+					   const void *key,
+					   uint32_t value)
 {
-	struct ndr_token_list *tok;
-	tok = talloc(mem_ctx, struct ndr_token_list);
-	NDR_ERR_HAVE_NO_MEMORY(tok);
-	tok->key = key;
-	tok->value = value;
-	DLIST_ADD((*list), tok);
+	struct ndr_token *tokens = NULL;
+	uint32_t alloc_count;
+	uint32_t count;
+
+	if (*list == NULL) {
+		*list = talloc_zero(mem_ctx, struct ndr_token_list);
+		NDR_ERR_HAVE_NO_MEMORY(*list);
+		count = 0;
+		alloc_count = 10;
+		tokens = talloc_array(mem_ctx, struct ndr_token, alloc_count);
+		NDR_ERR_HAVE_NO_MEMORY(tokens);
+		(*list)->_token_array = (struct ndr_token_list *)tokens;
+	} else {
+		tokens = (struct ndr_token *) (*list)->_token_array;
+		alloc_count = talloc_array_length(tokens);
+		count = (*list)->count;
+	}
+
+	if (count == alloc_count) {
+		uint32_t new_alloc;
+		uint32_t increment = MIN(count, 1000);
+		new_alloc = alloc_count + increment;
+		if (new_alloc < alloc_count) {
+			return NDR_ERR_RANGE;
+		}
+		alloc_count = new_alloc;
+		tokens = talloc_realloc(mem_ctx, tokens,
+				       struct ndr_token, new_alloc);
+		NDR_ERR_HAVE_NO_MEMORY(tokens);
+		(*list)->_token_array = (struct ndr_token_list *)tokens;
+	}
+
+	tokens[count].key = key;
+	tokens[count].value = value;
+	(*list)->count++;
 	return NDR_ERR_SUCCESS;
 }
 
 /*
   retrieve a token from a ndr context, using cmp_fn to match the tokens
 */
-_PUBLIC_ enum ndr_err_code ndr_token_retrieve_cmp_fn(struct ndr_token_list **list, const void *key, uint32_t *v,
-				   comparison_fn_t _cmp_fn, bool _remove_tok)
+_PUBLIC_ enum ndr_err_code ndr_token_retrieve_cmp_fn(struct ndr_token_list **list,
+						     const void *key, uint32_t *v,
+						     comparison_fn_t _cmp_fn,
+						     bool erase)
 {
-	struct ndr_token_list *tok;
-	for (tok=*list;tok;tok=tok->next) {
-		if (_cmp_fn && _cmp_fn(tok->key,key)==0) goto found;
-		else if (!_cmp_fn && tok->key == key) goto found;
+	struct ndr_token *tokens = NULL;
+	uint32_t i, count;
+
+	if (*list == NULL) {
+		return NDR_ERR_TOKEN;
+	}
+
+	count = (*list)->count;
+	tokens = (struct ndr_token *) (*list)->_token_array;
+
+	if (_cmp_fn) {
+		for (i = count - 1; i < count; i--) {
+			if (_cmp_fn(tokens[i].key, key) == 0) {
+				goto found;
+			}
+		}
+	} else {
+		for (i = count - 1; i < count; i--) {
+			if (tokens[i].key == key) {
+				goto found;
+			}
+		}
 	}
 	return NDR_ERR_TOKEN;
 found:
-	*v = tok->value;
-	if (_remove_tok) {
-		DLIST_REMOVE((*list), tok);
-		talloc_free(tok);
+	*v = tokens[i].value;
+	if (erase) {
+		if (i != count - 1) {
+			tokens[i] = tokens[count - 1];
+		}
+		(*list)->count--;
 	}
 	return NDR_ERR_SUCCESS;
 }
@@ -955,7 +1013,8 @@ found:
 /*
   retrieve a token from a ndr context
 */
-_PUBLIC_ enum ndr_err_code ndr_token_retrieve(struct ndr_token_list **list, const void *key, uint32_t *v)
+_PUBLIC_ enum ndr_err_code ndr_token_retrieve(struct ndr_token_list **list,
+					      const void *key, uint32_t *v)
 {
 	return ndr_token_retrieve_cmp_fn(list, key, v, NULL, true);
 }
@@ -965,10 +1024,15 @@ _PUBLIC_ enum ndr_err_code ndr_token_retrieve(struct ndr_token_list **list, cons
 */
 _PUBLIC_ uint32_t ndr_token_peek(struct ndr_token_list **list, const void *key)
 {
-	struct ndr_token_list *tok;
-	for (tok = *list; tok; tok = tok->next) {
-		if (tok->key == key) {
-			return tok->value;
+	if (*list != NULL) {
+		unsigned i;
+		uint32_t count = (*list)->count;
+		struct ndr_token *tokens = \
+			(struct ndr_token *) (*list)->_token_array;
+		for (i = count - 1; i < count; i--) {
+			if (tokens[i].key == key) {
+				return tokens[i].value;
+			}
 		}
 	}
 	return 0;
