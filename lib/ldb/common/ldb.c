@@ -1885,24 +1885,45 @@ const char *ldb_strerror(int ldb_err)
 int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 {
 	struct ldb_opaque *o;
+	unsigned int i;
+	size_t alloc_size, new_alloc;
 
 	/* allow updating an existing value */
-	for (o=ldb->opaque;o;o=o->next) {
+	for (i = 0; i < ldb->opaque_count; i++) {
+		o = &ldb->opaque[i];
 		if (strcmp(o->name, name) == 0) {
 			o->value = value;
 			return LDB_SUCCESS;
 		}
 	}
 
-	o = talloc(ldb, struct ldb_opaque);
-	if (o == NULL) {
-		ldb_oom(ldb);
-		return LDB_ERR_OTHER;
+	if (ldb->opaque == NULL) {
+		/* 26 is how many unique opaque strings there are in Samba */
+		ldb->opaque = talloc_array(ldb, struct ldb_opaque, 26);
+		if (ldb->opaque == NULL) {
+			ldb_oom(ldb);
+			return LDB_ERR_OTHER;
+		}
+	} else {
+		alloc_size = talloc_array_length(ldb->opaque);
+		if (alloc_size == ldb->opaque_count) {
+			new_alloc = alloc_size * 2;
+			if (new_alloc < alloc_size) {
+
+			}
+			o = talloc_realloc(ldb, ldb->opaque,
+					   struct ldb_opaque, new_alloc);
+			if (o == NULL) {
+				ldb_oom(ldb);
+				return LDB_ERR_OTHER;
+			}
+			ldb->opaque = o;
+		}
 	}
-	o->next = ldb->opaque;
-	o->name = name;
-	o->value = value;
-	ldb->opaque = o;
+
+	ldb->opaque[ldb->opaque_count].name = name;
+	ldb->opaque[ldb->opaque_count].value = value;
+	ldb->opaque_count++;
 	return LDB_SUCCESS;
 }
 
@@ -1911,8 +1932,10 @@ int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 */
 void *ldb_get_opaque(struct ldb_context *ldb, const char *name)
 {
+	unsigned int i;
 	struct ldb_opaque *o;
-	for (o=ldb->opaque;o;o=o->next) {
+	for (i = 0; i < ldb->opaque_count; i++) {
+		o = &ldb->opaque[i];
 		if (strcmp(o->name, name) == 0) {
 			return o->value;
 		}

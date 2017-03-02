@@ -111,10 +111,10 @@ struct ldb_context {
 
 	/* backend specific opaque parameters */
 	struct ldb_opaque {
-		struct ldb_opaque *next;
 		const char *name;
 		void *value;
 	} *opaque;
+	unsigned int opaque_count;
 
 	struct ldb_schema schema;
 
