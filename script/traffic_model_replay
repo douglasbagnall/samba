@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+import time
+import os
+import random
+
+
+sys.path.insert(0, "bin/python")
+
+from samba.emulate import traffic
+
+def replay(conversations):
+    start = time.time()
+    for c in conversations:
+        c.replay_with_delay(start)
+
+
+def summarise(conversations, f):
+    all_packets = []
+    for c in conversations:
+        all_packets.extend(c.replay_as_summary_lines())
+
+    all_packets.sort()
+    for t, line in all_packets:
+        print >>f, line
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__,
+                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('-m', '--model',
+                        help='load this model')
+    parser.add_argument('-i', '--replay-rate', type=float, default=1.0,
+                        help='rplay at this speed')
+    parser.add_argument('-d', '--duration', type=float, default=20.0,
+                        help='run model for this long (approx)')
+    parser.add_argument('-r', '--replay', action='store_true',
+                        help='replay rather than writing to disk')
+    parser.add_argument('infile', nargs='?',
+                        default=sys.stdin)
+    parser.add_argument('-o', '--output', type=argparse.FileType('w'),
+                        default=sys.stdout,
+                        help='write traffic summary here')
+
+    args = parser.parse_args()
+
+    if not args.model:
+        print >> sys.stderr, "what model do you want to use?"
+
+    model = traffic.TrafficModel()
+    model.load(args.model)
+
+    conversations = model.generate_conversations(args.replay_rate, args.duration)
+
+    if False:
+        for c in conversations:
+            print c
+            for p in c.packets:
+                print "    ", p
+
+    if args.replay:
+        replay(conversations)
+    else:
+        summarise(conversations, args.output)
+
+
+main()

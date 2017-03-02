@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+import sys
+import time
+import os
+import random
+import optparse
+
+
+sys.path.insert(0, "bin/python")
+
+from samba.emulate import traffic
+import samba.getopt as options
+
+def fake_replay(conversations):
+    start = time.time()
+    for c in conversations:
+        c.replay_in_fork_with_delay(start)
+
+def main():
+    parser = optparse.OptionParser(__file__ + " [options] <summary> <host>")
+    sambaopts = options.SambaOptions(parser)
+    parser.add_option_group(sambaopts)
+    parser.add_option_group(options.VersionOptions(parser))
+    credopts = options.CredentialsOptions(parser)
+    parser.add_option_group(credopts)
+
+    parser.add_option('--dns-rate', type='float', default=None,
+                      help=('fire dns packets at this rate '
+                            '(default: guess/calculate)'))
+    parser.add_option('-m', '--model', action='store_true',
+                      help=('summary is a model'), default=False)
+    parser.add_option('--fake-replay', action='store_true',
+                      help=("don't send packets; print lines instead"))
+    parser.add_option('-r', '--replay-rate', type='float', default=1.0,
+                      help='model this much times real intensity')
+    parser.add_option('-D', '--duration', type='float', default=20.0,
+                      help='run model for this long (approx)')
+
+    opts, args = parser.parse_args()
+
+    if len(args) == 2:
+        summary, host = args
+    elif opts.fake_replay and len(args) == 1:
+        summary = args[0]
+    else:
+        parser.print_usage()
+        return
+
+    if opts.model:
+        model = traffic.TrafficModel()
+        model.load(summary)
+        conversations = model.generate_conversations(opts.replay_rate,
+                                                     opts.duration)
+        dns_rate = model.get_dns_rate()
+    else:
+        conversations, interval, dns_rate = traffic.ingest_summaries([summary])
+
+    if opts.dns_rate is not None:
+        dns_rate = opts.dns_rate
+
+    if opts.debuglevel > 5:
+        for c in conversations:
+            for p in c.packets:
+                print "    ", p
+
+        print '=' * 72
+
+    if opts.fake_replay:
+        fake_replay(conversations)
+        return
+
+    lp = sambaopts.get_loadparm()
+    creds = credopts.get_credentials(lp)
+
+    traffic.replay(conversations, host, lp, creds, duration=opts.duration)
+
+
+
+main()

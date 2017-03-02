@@ -1,0 +1,115 @@
+{
+  "ngrams": {
+    "rpc_netlogon:21\tepm:3": {
+      "rpc_netlogon:29": 1
+    }, 
+    "wait:1\tldap:2": {
+      "dns:0": 1
+    }, 
+    "dns:0\tdns:0": {
+      "dns:0": 5, 
+      "ldap:3": 1, 
+      "wait:0": 1
+    }, 
+    "dns:0\tldap:3": {
+      "wait:1": 1
+    }, 
+    "kerberos:\tldap:3": {
+      "smb:0x72": 1
+    }, 
+    "dcerpc:11\tepm:3": {
+      "dcerpc:11": 1
+    }, 
+    "wait:0\tcldap:3": {
+      "cldap:3": 1
+    }, 
+    "-\tdns:0": {
+      "dns:0": 1
+    }, 
+    "wait:0\tdcerpc:11": {
+      "epm:3": 1
+    }, 
+    "ldap:3\tsmb:0x72": {
+      "-": 1
+    }, 
+    "rpc_netlogon:29\tkerberos:": {
+      "ldap:3": 1
+    }, 
+    "cldap:3\twait:0": {
+      "dcerpc:11": 1
+    }, 
+    "epm:3\trpc_netlogon:29": {
+      "kerberos:": 1
+    }, 
+    "-\t-": {
+      "dns:0": 1
+    }, 
+    "epm:3\tdcerpc:11": {
+      "rpc_netlogon:4": 1
+    }, 
+    "ldap:3\twait:1": {
+      "ldap:2": 1
+    }, 
+    "cldap:3\tcldap:3": {
+      "cldap:3": 1, 
+      "wait:0": 1
+    }, 
+    "rpc_netlogon:4\trpc_netlogon:26": {
+      "dcerpc:11": 1
+    }, 
+    "dcerpc:11\trpc_netlogon:4": {
+      "rpc_netlogon:26": 1
+    }, 
+    "rpc_netlogon:26\tdcerpc:11": {
+      "rpc_netlogon:21": 1
+    }, 
+    "ldap:2\tdns:0": {
+      "dns:0": 1
+    }, 
+    "dns:0\twait:0": {
+      "cldap:3": 1
+    }, 
+    "dcerpc:11\trpc_netlogon:21": {
+      "epm:3": 1
+    }
+  }, 
+  "query_details": {
+    "rpc_netlogon:29": {
+      "-": 1
+    }, 
+    "epm:3": {
+      "-": 2
+    }, 
+    "cldap:3": {
+      "\t\t\tNetlogon\t\t\t": 3
+    }, 
+    "dcerpc:11": {
+      "-": 3
+    }, 
+    "rpc_netlogon:26": {
+      "-": 1
+    }, 
+    "dns:0": {
+      "-": 9
+    }, 
+    "rpc_netlogon:21": {
+      "-": 1
+    }, 
+    "ldap:2": {
+      "\t\t\t\t\t\t": 1
+    }, 
+    "smb:0x72": {
+      "-": 1
+    }, 
+    "kerberos:": {
+      "": 1
+    }, 
+    "ldap:3": {
+      "\t\t\tsubschemaSubentry,dsServiceName,namingContexts,defaultNamingContext,schemaNamingContext,configurationNamingContext,rootDomainNamingContext,supportedControl,supportedLDAPVersion,supportedLDAPPolicies,supportedSASLMechanisms,dnsHostName,ldapServiceName,serverName,supportedCapabilities\t\t\t": 1, 
+      "2\tDC,DC\t\tcn\t\t\t": 1
+    }, 
+    "rpc_netlogon:4": {
+      "-": 1
+    }
+  }
+}
