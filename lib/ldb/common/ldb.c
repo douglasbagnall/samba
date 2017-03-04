@@ -1879,51 +1879,97 @@ const char *ldb_strerror(int ldb_err)
 	return "Unknown error";
 }
 
+#define LDB_OPAQUE_HASH_CONST_A 1
+#define LDB_OPAQUE_HASH_CONST_B 7
+#define LDB_OPAQUE_HASH_CONST_C 9
+
+
+static inline uint8_t ldb_opaque_six_bit_hash(const char *s)
+{
+	/* This hash is designed to return a different number for every string
+	   that Samba uses in ldb_opaque, making lookups and insertions  O(1).
+
+	   The core has is from DJB's CDB.
+
+	   http://cr.yp.to/cdb.html
+
+	   We use it here instead of tdb_jenkins_hash because that function
+	   takes a TDB_DATA struct and would require a strlen().
+
+	   The hash value is then modified to have the desired properties and
+	   to fit within 6 bits.
+	*/
+
+	uint32_t h = 5381;
+	while (*s != '\0') {
+		h = ((h << 5) + h) ^ *s;
+		s++;
+	}
+
+	h = ((h >> LDB_OPAQUE_HASH_CONST_A) ^
+	     ((h >> LDB_OPAQUE_HASH_CONST_B) + LDB_OPAQUE_HASH_CONST_C));
+
+	return h & 63;
+}
+
+static inline unsigned find_opaque_offset(struct ldb_context *ldb,
+					  const char *name)
+{
+	unsigned int i;
+	uint8_t hash = ldb_opaque_six_bit_hash(name);
+
+	for (i = hash; i < ldb->opaque_count; i++) {
+		struct ldb_opaque *o = &ldb->opaque[i];
+		if (o == NULL) {
+			return i;
+		}
+		if (strcmp(o->name, name) == 0) {
+			return i;
+		}
+	}
+	return ldb->opaque_count;
+}
+
 /*
   set backend specific opaque parameters
 */
 int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 {
 	struct ldb_opaque *o;
-	unsigned int i;
-	size_t alloc_size, new_alloc;
-
-	/* allow updating an existing value */
-	for (i = 0; i < ldb->opaque_count; i++) {
-		o = &ldb->opaque[i];
-		if (strcmp(o->name, name) == 0) {
-			o->value = value;
-			return LDB_SUCCESS;
-		}
-	}
+	unsigned new_alloc, offset;
 
 	if (ldb->opaque == NULL) {
-		/* 26 is how many unique opaque strings there are in Samba */
-		ldb->opaque = talloc_array(ldb, struct ldb_opaque, 26);
+		/*
+		 * We make room for 64 values to start with, because the hash
+		 * in the range 0-63. */
+		ldb->opaque_count = 64;
+		ldb->opaque = talloc_zero_array(ldb, struct ldb_opaque,
+						ldb->opaque_count);
 		if (ldb->opaque == NULL) {
 			ldb_oom(ldb);
 			return LDB_ERR_OTHER;
 		}
-	} else {
-		alloc_size = talloc_array_length(ldb->opaque);
-		if (alloc_size == ldb->opaque_count) {
-			new_alloc = alloc_size * 2;
-			if (new_alloc < alloc_size) {
-
-			}
-			o = talloc_realloc(ldb, ldb->opaque,
-					   struct ldb_opaque, new_alloc);
-			if (o == NULL) {
-				ldb_oom(ldb);
-				return LDB_ERR_OTHER;
-			}
-			ldb->opaque = o;
-		}
 	}
 
-	ldb->opaque[ldb->opaque_count].name = name;
-	ldb->opaque[ldb->opaque_count].value = value;
-	ldb->opaque_count++;
+	offset = find_opaque_offset(ldb, name);
+
+	if (offset == ldb->opaque_count) {
+		size_t increase = offset;
+		new_alloc = offset + increase;
+		if (new_alloc < offset) {
+			return LDB_ERR_SIZE_LIMIT_EXCEEDED;
+		}
+		o = talloc_realloc(ldb, ldb->opaque,
+				   struct ldb_opaque, new_alloc);
+		if (o == NULL) {
+			ldb_oom(ldb);
+			return LDB_ERR_OTHER;
+		}
+		memset(o + offset, 0, increase * sizeof(struct ldb_opaque));
+		ldb->opaque = o;
+	}
+	ldb->opaque[offset].name = name;
+	ldb->opaque[offset].value = value;
 	return LDB_SUCCESS;
 }
 
@@ -1932,16 +1978,13 @@ int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 */
 void *ldb_get_opaque(struct ldb_context *ldb, const char *name)
 {
-	unsigned int i;
-	struct ldb_opaque *o;
-	for (i = 0; i < ldb->opaque_count; i++) {
-		o = &ldb->opaque[i];
-		if (strcmp(o->name, name) == 0) {
-			return o->value;
-		}
+	unsigned int offset = find_opaque_offset(ldb, name);
+	if (offset < ldb->opaque_count) {
+		return &ldb->opaque[offset];
 	}
 	return NULL;
 }
+
 
 int ldb_global_init(void)
 {

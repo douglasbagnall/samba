@@ -1,0 +1,73 @@
+#!/usr/bin/python
+
+import itertools
+
+def hash_gen(A, B, C):
+
+    def hash(s):
+        '''Return the value of DJB's hash function for the given 8-bit string.'''
+        h = 5381
+        for c in s:
+            h = (((h << 5) + h) ^ ord(c)) & 0xffffffff
+
+        h = (h >> A) ^ (h >> B + C)
+        return h & 63
+
+    return hash
+
+STRINGS = [
+    "LDB_SECRET_ATTRIBUTE_LIST"
+    "SAMBA_HANDLERS_REGISTERED",
+    "SAMLDB_MSDS_INTID_OPAQUE",
+    "cache.domain_sid",
+    "cache.invocation_id",
+    "cache.ntds_guid",
+    "configurationNamingContext",
+    "credentials",
+    "defaultNamingContext",
+    "domainControllerFunctionality",
+    "domainFunctionality",
+    "dsdb_extended_dn_store_format",
+    "dsdb_schema",
+    "dsdb_schema_refresh_fn",
+    "dsdb_schema_refresh_fn_private_data",
+    "dsdb_use_global_schema",
+    "forced.ntds_settings_dn",
+    "forestFunctionality",
+    "ldb_url",
+    "loadparm",
+    "readOnlySchema",
+    "remoteAddress",
+    "rootDomainNamingContext",
+    "schemaNamingContext",
+    "sessionInfo",
+    "supportedSASLMechanisms",
+    "winsdb_handle",
+]
+    
+def try_hash_constants(strings, A, B, C):
+    hash = hash_gen(A, B, C)
+
+    hashes = set()
+    for s in strings:
+        hashes.add(hash(s))
+
+    if len(hashes) != len(strings):
+        return False
+    
+    print A, B, C
+    for s in strings:
+        print s, hash(s)
+    return True
+    
+def try_permutations():
+    for A, B, C in itertools.permutations(range(10), 3):
+        if try_hash_constants(STRINGS, A, B, C):
+            break
+
+def main():
+    try_permutations()
+
+main()
+    
+    
