@@ -2,7 +2,7 @@
 
 import itertools
 
-def hash_gen(A, B, C, D):
+def hash_gen(A, B, C, D=5381):
 
     def hash(s):
         '''Return the value of DJB's hash function for the given 8-bit string.'''
@@ -11,7 +11,7 @@ def hash_gen(A, B, C, D):
             h = (((h << 5) + h) ^ ord(c)) & 0xffffffff
 
         h = (h >> A) ^ (h >> B + C)
-        return h & 31
+        return h & 63
 
     return hash
 
@@ -48,7 +48,6 @@ STRINGS = [
 def try_hash_constants(strings, A, B, C, D):
     hash = hash_gen(A, B, C, D)
 
-
     hashes = set()
     for s in strings:
         hashes.add(hash(s))
@@ -56,13 +55,13 @@ def try_hash_constants(strings, A, B, C, D):
     if len(hashes) != len(strings):
         return False
     
-    print A, B, C
+    print A, B, C, D
     for s in strings:
         print s, hash(s)
     return True
     
 def try_permutations():
-    for A, B, C, D in itertools.product(range(21), range(21), range(21), range(333)):
+    for A, B, C, D in itertools.product(range(9), range(9), range(1), range(19)):
         if try_hash_constants(STRINGS, A, B, C, D):
             break
 
