@@ -1880,7 +1880,7 @@ const char *ldb_strerror(int ldb_err)
 }
 
 #define LDB_OPAQUE_HASH_CONST_A 1
-#define LDB_OPAQUE_HASH_CONST_B 8
+#define LDB_OPAQUE_HASH_CONST_B 16
 #define LDB_OPAQUE_HASH_CONST_C 0
 
 
@@ -1900,7 +1900,7 @@ static inline uint8_t ldb_opaque_six_bit_hash(const char *s)
 	   to fit within 6 bits.
 	*/
 
-	uint32_t h = 14;
+	uint32_t h = 5381;
 	while (*s != '\0') {
 		h = ((h << 5) + h) ^ *s;
 		s++;

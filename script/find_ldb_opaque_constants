@@ -61,7 +61,7 @@ def try_hash_constants(strings, A, B, C, D):
     return True
     
 def try_permutations():
-    for A, B, C, D in itertools.product(range(9), range(9), range(1), range(19)):
+    for A, B, C, D in itertools.product(range(17), range(17), range(1), [5381, 0]):
         if try_hash_constants(STRINGS, A, B, C, D):
             break
 
