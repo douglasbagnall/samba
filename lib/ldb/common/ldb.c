@@ -35,6 +35,7 @@
 #define TEVENT_DEPRECATED 1
 #include "ldb_private.h"
 #include "ldb.h"
+#include "../lib/util/binsearch.h"
 
 static int ldb_context_destructor(void *ptr)
 {
@@ -1879,55 +1880,10 @@ const char *ldb_strerror(int ldb_err)
 	return "Unknown error";
 }
 
-#define LDB_OPAQUE_HASH_CONST_A 1
-#define LDB_OPAQUE_HASH_CONST_B 16
-#define LDB_OPAQUE_HASH_CONST_C 0
 
-
-static inline uint8_t ldb_opaque_six_bit_hash(const char *s)
+static int ldb_opaque_cmp(const char *name, struct ldb_opaque *o)
 {
-	/* This hash is designed to return a different number for every string
-	   that Samba uses in ldb_opaque, making lookups and insertions  O(1).
-
-	   The core has is from DJB's CDB.
-
-	   http://cr.yp.to/cdb.html
-
-	   We use it here instead of tdb_jenkins_hash because that function
-	   takes a TDB_DATA struct and would require a strlen().
-
-	   The hash value is then modified to have the desired properties and
-	   to fit within 6 bits.
-	*/
-
-	uint32_t h = 5381;
-	while (*s != '\0') {
-		h = ((h << 5) + h) ^ *s;
-		s++;
-	}
-
-	h = ((h >> LDB_OPAQUE_HASH_CONST_A) ^
-	     ((h >> LDB_OPAQUE_HASH_CONST_B) + LDB_OPAQUE_HASH_CONST_C));
-
-	return h & 63;
-}
-
-static inline unsigned find_opaque_offset(struct ldb_context *ldb,
-					  const char *name)
-{
-	unsigned int i;
-	uint8_t hash = ldb_opaque_six_bit_hash(name);
-
-	for (i = hash; i < ldb->opaque_count; i++) {
-		struct ldb_opaque *o = &ldb->opaque[i];
-		if (o == NULL) {
-			return i;
-		}
-		if (strcmp(o->name, name) == 0) {
-			return i;
-		}
-	}
-	return ldb->opaque_count;
+	return strcmp(name, o->name);
 }
 
 /*
@@ -1935,28 +1891,36 @@ static inline unsigned find_opaque_offset(struct ldb_context *ldb,
 */
 int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 {
-	struct ldb_opaque *o;
-	unsigned new_alloc, offset;
+	struct ldb_opaque *o = NULL;
+	struct ldb_opaque *next = NULL;
+	size_t alloc_size, new_alloc;
+	size_t next_offset;
 
+	BINARY_ARRAY_SEARCH_GTE(ldb->opaque, ldb->opaque_count, name,
+				ldb_opaque_cmp, o, next);
+
+	if (o) {
+		/* we are replacing an existing one */
+		o->value = value;
+		return LDB_SUCCESS;
+	}
+
+	alloc_size = talloc_array_length(ldb->opaque);
+
+	if (next == NULL) {
+		next_offset = ldb->opaque_count;
+	} else {
+		next_offset = next - ldb->opaque;
+	}
 	if (ldb->opaque == NULL) {
-		/*
-		 * We make room for 64 values to start with, because the hash
-		 * in the range 0-63. */
-		ldb->opaque_count = 64;
-		ldb->opaque = talloc_zero_array(ldb, struct ldb_opaque,
-						ldb->opaque_count);
+		ldb->opaque = talloc_array(ldb, struct ldb_opaque, 26);
 		if (ldb->opaque == NULL) {
 			ldb_oom(ldb);
 			return LDB_ERR_OTHER;
 		}
-	}
-
-	offset = find_opaque_offset(ldb, name);
-
-	if (offset == ldb->opaque_count) {
-		size_t increase = offset;
-		new_alloc = offset + increase;
-		if (new_alloc < offset) {
+	} else if (alloc_size == ldb->opaque_count) {
+		new_alloc = alloc_size * 2;
+		if (new_alloc < alloc_size) {
 			return LDB_ERR_SIZE_LIMIT_EXCEEDED;
 		}
 		o = talloc_realloc(ldb, ldb->opaque,
@@ -1965,11 +1929,18 @@ int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 			ldb_oom(ldb);
 			return LDB_ERR_OTHER;
 		}
-		memset(o + offset, 0, increase * sizeof(struct ldb_opaque));
-		ldb->opaque = o;
+		next = ldb->opaque + next_offset;
 	}
-	ldb->opaque[offset].name = name;
-	ldb->opaque[offset].value = value;
+
+	if (next_offset != ldb->opaque_count) {
+		/* we are inserting in the middle and need to shift others */
+		size_t n = ldb->opaque_count - next_offset;
+		memmove(next + 1, next, sizeof(struct ldb_opaque) * n);
+	}
+
+	next->name = name;
+	next->value = value;
+	ldb->opaque_count++;
 	return LDB_SUCCESS;
 }
 
@@ -1978,9 +1949,12 @@ int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 */
 void *ldb_get_opaque(struct ldb_context *ldb, const char *name)
 {
-	unsigned int offset = find_opaque_offset(ldb, name);
-	if (offset < ldb->opaque_count) {
-		return &ldb->opaque[offset];
+	struct ldb_opaque *o = NULL;
+	struct ldb_opaque *unused;
+	BINARY_ARRAY_SEARCH_GTE(ldb->opaque, ldb->opaque_count, name,
+				ldb_opaque_cmp, o, unused);
+	if (o) {
+		return o->value;
 	}
 	return NULL;
 }
