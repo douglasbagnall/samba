@@ -1906,9 +1906,9 @@ static inline uint8_t ldb_opaque_six_bit_hash(const char *s)
 	*/
 
 	uint32_t h = 5381;
-	while (*s != '\0') {
-		h = ((h << 5) + h) ^ *s;
-		s++;
+	unsigned int i;
+	for (i = 0; s[i] != '\0'; i++) {
+		h = ((h << 5) + h) ^ (unsigned)s[i];
 	}
 
 	h = ((h >> LDB_OPAQUE_HASH_CONST_A) ^
