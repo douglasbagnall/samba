@@ -1883,6 +1883,11 @@ const char *ldb_strerror(int ldb_err)
 #define LDB_OPAQUE_HASH_CONST_B 7
 #define LDB_OPAQUE_HASH_CONST_C 9
 
+#define STDERR(format, ...) do {                                 \
+    fprintf (stderr, (format),## __VA_ARGS__);                  \
+    fputc('\n', stderr);					\
+    fflush(stderr);                                             \
+	} while (0)
 
 static inline uint8_t ldb_opaque_six_bit_hash(const char *s)
 {
@@ -1908,7 +1913,7 @@ static inline uint8_t ldb_opaque_six_bit_hash(const char *s)
 
 	h = ((h >> LDB_OPAQUE_HASH_CONST_A) ^
 	     ((h >> LDB_OPAQUE_HASH_CONST_B) + LDB_OPAQUE_HASH_CONST_C));
-
+	STDERR("%s hashes to %u", s, h & 63);
 	return h & 63;
 }
 
@@ -1917,16 +1922,20 @@ static inline unsigned find_opaque_offset(struct ldb_context *ldb,
 {
 	unsigned int i;
 	uint8_t hash = ldb_opaque_six_bit_hash(name);
-
+	STDERR("find offset %s", name);
 	for (i = hash; i < ldb->opaque_count; i++) {
 		struct ldb_opaque *o = &ldb->opaque[i];
 		if (o == NULL) {
+			STDERR("find offset %s miss (NULL) %u", name, i);
 			return i;
 		}
+		STDERR("i %u o->name  %s", i, o->name);
 		if (strcmp(o->name, name) == 0) {
+			STDERR("find offset %s hit %u", name, i);
 			return i;
 		}
 	}
+	STDERR("find offset %s miss END %u", name, ldb->opaque_count);
 	return ldb->opaque_count;
 }
 
@@ -1937,21 +1946,26 @@ int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 {
 	struct ldb_opaque *o;
 	unsigned new_alloc, offset;
+	STDERR("SET %s to %p", name, value);
 
 	if (ldb->opaque == NULL) {
 		/*
 		 * We make room for 64 values to start with, because the hash
 		 * in the range 0-63. */
+		STDERR("ldb->opaque is NULL");
+
 		ldb->opaque_count = 64;
 		ldb->opaque = talloc_zero_array(ldb, struct ldb_opaque,
 						ldb->opaque_count);
 		if (ldb->opaque == NULL) {
+			STDERR("OOMing!");
 			ldb_oom(ldb);
 			return LDB_ERR_OTHER;
 		}
 	}
 
 	offset = find_opaque_offset(ldb, name);
+	STDERR("offset: %u; count %u", offset, ldb->opaque_count);
 
 	if (offset == ldb->opaque_count) {
 		size_t increase = offset;
@@ -1970,6 +1984,7 @@ int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 	}
 	ldb->opaque[offset].name = name;
 	ldb->opaque[offset].value = value;
+	STDERR("set ldb->opaque[%u].name = '%s'", offset, name);
 	return LDB_SUCCESS;
 }
 
@@ -1979,6 +1994,7 @@ int ldb_set_opaque(struct ldb_context *ldb, const char *name, void *value)
 void *ldb_get_opaque(struct ldb_context *ldb, const char *name)
 {
 	unsigned int offset = find_opaque_offset(ldb, name);
+	STDERR("GET %s, offset %u", name, offset);
 	if (offset < ldb->opaque_count) {
 		return &ldb->opaque[offset];
 	}
