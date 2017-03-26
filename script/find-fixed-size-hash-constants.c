@@ -12,19 +12,23 @@
     } while (0)
 
 
-const uint32_t INIT_A = 5381 + 2000;
+//const uint32_t INIT_A = 5381;
+const uint32_t INIT_A = 1296;
 const uint32_t INIT_B = 0;
-const uint32_t INIT_C = 31;
-const uint32_t INIT_D = 0;
+const uint32_t INIT_C = 30;
+const uint32_t INIT_D = 100;
+const uint32_t INIT_E = 6;
 
-const uint32_t LIMIT_A = 0;
+//const uint32_t LIMIT_A = 0;
+const uint32_t LIMIT_A = 1294;
 const uint32_t LIMIT_B = 24;
 const uint32_t LIMIT_C = 0;
-const uint32_t LIMIT_D = 300;
+const uint32_t LIMIT_D = 5000;
+const uint32_t LIMIT_E = 3;
 
 
 struct hash {
-	uint32_t A, B, C, D;
+	uint32_t A, B, C, D, E;
 };
 
 static uint32_t case_hash(struct hash hash, const char *s)
@@ -32,7 +36,7 @@ static uint32_t case_hash(struct hash hash, const char *s)
 	uint32_t h = hash.A;
 	while (*s++ != '\0') {
 		uint8_t c = (uint8_t) *s | 32;
-		h = ((h << 5) + h) ^ c;
+		h = ((h << hash.E) + h) ^ c;
 	}
 	return (h >> hash.B) ^ ((h >> hash.C) + hash.D);
 }
@@ -93,6 +97,11 @@ static struct strings load_strings(const char *filename)
 
 static bool change_constants(struct hash *hash)
 {
+	if (hash->E != LIMIT_E) {
+		hash->E--;
+		return true;
+	}
+	hash->E = INIT_E;
 	if (hash->C != LIMIT_C) {
 		hash->C--;
 		return true;
@@ -125,10 +134,14 @@ int main(int argc, char *argv[])
 	int best_compares;
 	uint64_t count = 0;
 	struct timespec start, end, mid;
-	struct hash hash = { INIT_A, INIT_B, INIT_C, INIT_D};
+	struct hash hash = { INIT_A, INIT_B, INIT_C, INIT_D, INIT_E};
 	struct hash best_collisions_hash = hash;
 	struct hash best_compares_hash = hash;
-	uint64_t cycle_length = INIT_A * LIMIT_B * INIT_C * LIMIT_D;
+	int64_t cycle_length = abs((INIT_A - LIMIT_A) *
+				   (INIT_B - LIMIT_B) *
+				   (INIT_C - LIMIT_C) *
+				   (INIT_D - LIMIT_D) *
+				   (INIT_E - LIMIT_E));
 	if (argc < 3) {
 		printf("usage: %s <string list> <hash bits>\n\n",
 		       argv[0]);
@@ -178,8 +191,8 @@ int main(int argc, char *argv[])
 		//DEBUG("collisions %d compares %d\n", collisions, compares);
 
 		if (compares < best_compares || collisions < best_collisions) {
-			printf("A %u B %u C %u D %u collisions %d compares %d\n",
-			       hash.A, hash.B, hash.C, hash.D,
+			printf("A %u B %u C %u D %u E %u collisions %d compares %d\n",
+			       hash.A, hash.B, hash.C, hash.D, hash.E,
 			       collisions, compares);
 			if (compares < best_compares) {
 				best_compares = compares;
@@ -201,10 +214,10 @@ int main(int argc, char *argv[])
 			secs = end.tv_sec - mid.tv_sec;
 			nano = end.tv_nsec - mid.tv_nsec;
 			printf("%luM (%lu%%) in %lds [+%.2fs]; "
-			       "(A %u B %u C %u D %u)\n",
+			       "(A %u B %u C %u D %u E %u)\n",
 			       count >> 20, count * 100 / cycle_length,
 			       total, secs + nano * 1e-9,
-			       hash.A, hash.B, hash.C, hash.D);
+			       hash.A, hash.B, hash.C, hash.D, hash.E);
 			mid = end;
 		}
 		if (change_constants(&hash) == false) {
@@ -213,11 +226,13 @@ int main(int argc, char *argv[])
 	}
 
 	printf("final best results\n");
-	printf("collisions %d A %u B %u C %u D %u\n", best_collisions,
+	printf("collisions %d A %u B %u C %u D %u E %u\n", best_collisions,
 	       best_collisions_hash.A, best_collisions_hash.B,
-	       best_collisions_hash.C, best_collisions_hash.D);
-	printf("compares %d   A %u B %u C %u D %u\n", best_compares,
+	       best_collisions_hash.C, best_collisions_hash.D,
+	       best_collisions_hash.E);
+	printf("compares %d   A %u B %u C %u D %u E %u\n", best_compares,
 	       best_compares_hash.A, best_compares_hash.B,
-	       best_compares_hash.C, best_compares_hash.D);
+	       best_compares_hash.C, best_compares_hash.D,
+	       best_collisions_hash.E);
 	return 0;
 }
