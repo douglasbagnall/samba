@@ -15,15 +15,15 @@
 //const uint32_t INIT_A = 5381;
 const uint32_t INIT_A = 1296;
 const uint32_t INIT_B = 0;
-const uint32_t INIT_C = 30;
-const uint32_t INIT_D = 100;
+const uint32_t INIT_C = 20;
+const uint32_t INIT_D = 0;
 const uint32_t INIT_E = 6;
 
 //const uint32_t LIMIT_A = 0;
 const uint32_t LIMIT_A = 1294;
-const uint32_t LIMIT_B = 24;
+const uint32_t LIMIT_B = 20;
 const uint32_t LIMIT_C = 0;
-const uint32_t LIMIT_D = 5000;
+const uint32_t LIMIT_D = 10000;
 const uint32_t LIMIT_E = 3;
 
 
