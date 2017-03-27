@@ -34,9 +34,10 @@ struct hash {
 static uint32_t case_hash(struct hash hash, const char *s)
 {
 	uint32_t h = hash.A;
-	while (*s++ != '\0') {
-		uint8_t c = (uint8_t) *s | 32;
+	while (*s != '\0') {
+		uint8_t c = (uint8_t)*s | 32;
 		h = ((h << hash.E) + h) ^ c;
+		s++;
 	}
 	return (h >> hash.B) ^ ((h >> hash.C) + hash.D);
 }
