@@ -29,17 +29,47 @@ const uint32_t LIMIT_E = 10;
 
 struct hash {
 	uint32_t A, B, C, D, E;
+	uint8_t lut[256];
 };
 
-static uint32_t case_hash(struct hash hash, const char *s)
+struct rng {
+	uint64_t a;
+	uint64_t b;
+	uint64_t c;
+	uint64_t d;
+};
+
+#define ROTATE(x, k) (((x) << (k)) | ((x) >> (sizeof(x) * 8 - (k))))
+
+static uint64_t rand64(struct rng *x)
 {
-	uint32_t h = hash.A;
+	uint64_t e = x->a - ROTATE(x->b, 7);
+	x->a = x->b ^ ROTATE(x->c, 13);
+	x->b = x->c + ROTATE(x->d, 37);
+	x->c = x->d + e;
+	x->d = e + x->a;
+	return x->d;
+}
+
+static void rng_init(struct rng *x, uint64_t seed)
+{
+	int i;
+	x->a = 0xf1ea5eed;
+	x->b = x->c = x->d = seed;
+	for (i = 0; i < 20; ++i) {
+		(void)rand64(x);
+	}
+}
+
+static uint32_t case_hash(struct hash *hash, const char *s)
+{
+	uint32_t h = hash->A;
 	while (*s != '\0') {
-		uint8_t c = (uint8_t)*s | 32;
-		h = ((h << hash.E) + h) ^ c;
+		uint8_t c = hash->lut[(uint8_t)*s | 32];
+		h = ((h << hash->E) + h) ^ c;
 		s++;
 	}
-	return (h >> hash.B) ^ (h >> hash.E) ^ ((h >> hash.C) + hash.D);
+	return (h >> hash->B) ^ (h >> hash->E) ^ ((h >> hash->C) + hash->D);
 }
 
 struct strings {
@@ -96,8 +126,18 @@ static struct strings load_strings(const char *filename)
 	return s;
 }
 
-static bool change_constants(struct hash *hash)
+static bool change_constants(struct hash *hash, char *blamed_string, struct rng *rng)
 {
+	if (blamed_string) {
+		int a = rand64(rng) % strlen(blamed_string);
+		int b = rand64(rng) & 255;
+		uint8_t c = hash->lut[a];
+		hash->lut[a] = hash->lut[b];
+		hash->lut[b] = c;
+		if (b > 2) {
+			return true;
+		}
+	}
 	if (hash->E != LIMIT_E) {
 		hash->E--;
 		return true;
@@ -130,12 +170,13 @@ int main(int argc, char *argv[])
 {
 	uint32_t mask;
 	uint8_t *hits;
-
+	struct rng rng;
+	int i;
 	int best_collisions;
 	int best_compares;
 	uint64_t count = 0;
 	struct timespec start, end, mid;
-	struct hash hash = { INIT_A, INIT_B, INIT_C, INIT_D, INIT_E};
+	struct hash hash = { INIT_A, INIT_B, INIT_C, INIT_D, INIT_E, {0}};	
 	struct hash best_collisions_hash = hash;
 	struct hash best_compares_hash = hash;
 	int64_t cycle_length = ((1 + INIT_A - LIMIT_A) *
@@ -152,6 +193,11 @@ int main(int argc, char *argv[])
 	       argv[0], argv[1], argv[2]);
 
 	struct strings s = load_strings(argv[1]);
+
+	rng_init(&rng, 12345);
+	for (i = 0; i < 256; i++) {
+		hash.lut[i] = i;
+	}
 
 	mask = (1 << strtoul(argv[2], NULL, 10)) - 1;
 
@@ -170,7 +216,7 @@ int main(int argc, char *argv[])
 		uint32_t g;
 		memset(hits, 0, mask + 1);
 		for (i = 0; i < s.n_strings; i++) {
-			uint32_t h = case_hash(hash, s.strings[i]) & mask;
+			uint32_t h = case_hash(&hash, s.strings[i]) & mask;
 			if (hits[h]) {
 				if (hits[h] == 1) {
 					collisions++;
@@ -223,7 +269,7 @@ int main(int argc, char *argv[])
 			       hash.A, hash.B, hash.C, hash.D, hash.E);
 			mid = end;
 		}
-		if (change_constants(&hash) == false) {
+		if (change_constants(&hash, s.strings[i], &rng) == false) {
 			break;
 		}
 	}
