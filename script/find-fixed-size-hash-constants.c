@@ -12,19 +12,19 @@
     } while (0)
 
 
-//const uint32_t INIT_A = 5381;
-const uint32_t INIT_A = 1296;
+const uint32_t INIT_A = 5381;
+//const uint32_t INIT_A = 1296;
 const uint32_t INIT_B = 0;
-const uint32_t INIT_C = 20;
+const uint32_t INIT_C = 16;
 const uint32_t INIT_D = 0;
-const uint32_t INIT_E = 6;
+const uint32_t INIT_E = 24;
 
 //const uint32_t LIMIT_A = 0;
-const uint32_t LIMIT_A = 1294;
-const uint32_t LIMIT_B = 20;
+const uint32_t LIMIT_A = 0;
+const uint32_t LIMIT_B = 10;
 const uint32_t LIMIT_C = 0;
-const uint32_t LIMIT_D = 10000;
-const uint32_t LIMIT_E = 3;
+const uint32_t LIMIT_D = 200;
+const uint32_t LIMIT_E = 10;
 
 
 struct hash {
@@ -39,7 +39,7 @@ static uint32_t case_hash(struct hash hash, const char *s)
 		h = ((h << hash.E) + h) ^ c;
 		s++;
 	}
-	return (h >> hash.B) ^ ((h >> hash.C) + hash.D);
+	return (h >> hash.B) ^ (h >> hash.E) ^ ((h >> hash.C) + hash.D);
 }
 
 struct strings {
