@@ -138,11 +138,11 @@ int main(int argc, char *argv[])
 	struct hash hash = { INIT_A, INIT_B, INIT_C, INIT_D, INIT_E};
 	struct hash best_collisions_hash = hash;
 	struct hash best_compares_hash = hash;
-	int64_t cycle_length = abs((INIT_A - LIMIT_A) *
-				   (INIT_B - LIMIT_B) *
-				   (INIT_C - LIMIT_C) *
-				   (INIT_D - LIMIT_D) *
-				   (INIT_E - LIMIT_E));
+	int64_t cycle_length = ((1 + INIT_A - LIMIT_A) *
+				(1 + LIMIT_B - INIT_B) *
+				(1 + INIT_C - LIMIT_C) *
+				(1 + LIMIT_D - INIT_D) *
+				(1 + INIT_E - LIMIT_E));
 	if (argc < 3) {
 		printf("usage: %s <string list> <hash bits>\n\n",
 		       argv[0]);
@@ -159,7 +159,8 @@ int main(int argc, char *argv[])
 
 	best_collisions = mask + 1;
 	best_compares = mask + 1;
-	printf("mask %u n_strings %d\n", mask, s.n_strings);
+	printf("mask %u n_strings %d cycle %ld\n", mask, s.n_strings,
+	       cycle_length);
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	mid = start;
 	while (true) {
