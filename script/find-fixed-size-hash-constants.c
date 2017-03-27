@@ -129,13 +129,15 @@ static bool change_constants(struct hash *hash)
 int main(int argc, char *argv[])
 {
 	uint32_t mask;
-	int *hits;
+	uint8_t *hits;
 
-	int best_run = 0;
+	int best_collisions;
+	int best_compares;
 	uint64_t count = 0;
 	struct timespec start, end, mid;
 	struct hash hash = { INIT_A, INIT_B, INIT_C, INIT_D, INIT_E};
-	struct hash best_hash = hash;
+	struct hash best_collisions_hash = hash;
+	struct hash best_compares_hash = hash;
 	int64_t cycle_length = ((1 + INIT_A - LIMIT_A) *
 				(1 + LIMIT_B - INIT_B) *
 				(1 + INIT_C - LIMIT_C) *
@@ -153,37 +155,58 @@ int main(int argc, char *argv[])
 
 	mask = (1 << strtoul(argv[2], NULL, 10)) - 1;
 
-	hits = malloc((mask + 1) * sizeof(hits[0]));
+	hits = malloc(mask + 1);
 
+	best_collisions = mask + 1;
+	best_compares = mask + 1;
 	printf("mask %u n_strings %d cycle %ld\n", mask, s.n_strings,
 	       cycle_length);
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	mid = start;
 	while (true) {
 		int i;
-		uint32_t h = 0;
-		memset(hits, 0, (mask + 1) * sizeof(hits[0]));
+		int collisions = 0;
+		int compares = 0;
+		uint32_t g;
+		memset(hits, 0, mask + 1);
 		for (i = 0; i < s.n_strings; i++) {
-			h = case_hash(hash, s.strings[i]) & mask;
+			uint32_t h = case_hash(hash, s.strings[i]) & mask;
 			if (hits[h]) {
+				if (hits[h] == 1) {
+					collisions++;
+				}
+				compares++;
+				for (g = (h + 1) & mask;
+				     hits[g] && g != h;
+				     g = (g + 1) & mask) {
+					compares++;
+				}
+				hits[g] = 2; /* the first available space */
+			}
+			if (compares >= best_compares &&
+			    collisions >= best_collisions) {
+				//DEBUG("breaking after %d\n", i);
 				break;
 			}
-			hits[h] = i;
+			hits[h] = 1;
 		}
+		//DEBUG("collisions %d compares %d\n", collisions, compares);
 
-		if (i > best_run){
-			printf("A %u B %u C %u D %u E %u run %d\n",
+		if (compares < best_compares || collisions < best_collisions) {
+			printf("A %u B %u C %u D %u E %u collisions %d compares %d\n",
 			       hash.A, hash.B, hash.C, hash.D, hash.E,
-			       i);
-			printf("collision: %s  %s\n",
-			       s.strings[hits[h]],  s.strings[i]);
-
-
-			best_run = i;
-			best_hash = hash;
-			if (i == s.n_strings) {
-				break;
+			       collisions, compares);
+			if (compares < best_compares) {
+				best_compares = compares;
+				best_compares_hash = hash;
 			}
+			if (collisions < best_collisions) {
+				best_collisions = collisions;
+				best_collisions_hash = hash;
+			}
+		}
+		if (compares == 0 && collisions == 0) {
+			break;
 		}
 		count++;
 		if (count % (1024 * 1024) == 0) {
@@ -205,9 +228,13 @@ int main(int argc, char *argv[])
 	}
 
 	printf("final best results\n");
-	printf("run %d A %u B %u C %u D %u E %u\n", best_run,
-	       best_hash.A, best_hash.B,
-	       best_hash.C, best_hash.D,
-	       best_hash.E);
+	printf("collisions %d A %u B %u C %u D %u E %u\n", best_collisions,
+	       best_collisions_hash.A, best_collisions_hash.B,
+	       best_collisions_hash.C, best_collisions_hash.D,
+	       best_collisions_hash.E);
+	printf("compares %d   A %u B %u C %u D %u E %u\n", best_compares,
+	       best_compares_hash.A, best_compares_hash.B,
+	       best_compares_hash.C, best_compares_hash.D,
+	       best_collisions_hash.E);
 	return 0;
 }
