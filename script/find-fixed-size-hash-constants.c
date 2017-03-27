@@ -215,10 +215,11 @@ int main(int argc, char *argv[])
 			total = end.tv_sec - start.tv_sec;
 			secs = end.tv_sec - mid.tv_sec;
 			nano = end.tv_nsec - mid.tv_nsec;
-			printf("%luM (%lu%%) in %lds [+%.2fs]; "
-			       "(A %u B %u C %u D %u E %u)\n",
+			printf("\033[00;37m%luM (%lu%%) in %2ld:%02ld:%02ld "
+			       "[+%.2fs]; (A %u B %u C %u D %u E %u)\033[00m\n",
 			       count >> 20, count * 100 / cycle_length,
-			       total, secs + nano * 1e-9,
+			       total / 3600, (total / 60) % 60,
+			       total % 60, secs + nano * 1e-9,
 			       hash.A, hash.B, hash.C, hash.D, hash.E);
 			mid = end;
 		}
