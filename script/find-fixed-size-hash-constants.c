@@ -276,8 +276,8 @@ static void print_collisions(struct hash *hash, struct strings *s, uint32_t mask
 		uint32_t h = casefold_hash(hash, s->strings[i]) & mask;
 		if (hits[h]) {
 			collisions++;
-			//printf("collision %4x %s %s\n", h,
-			//       s->strings[i], s->strings[hits[h]]);
+			printf("collision %4x %s %s\n", h,
+			       s->strings[i], s->strings[hits[h]]);
 		}
 		else {
 			hits[h] = h;
@@ -346,8 +346,8 @@ int main(int argc, char *argv[])
 			hs = MAX(s, hs);
 			ls = MIN(s, ls);
 			if (s > best_run){
-				printf("A %4u B %2u C %2u D %3u E %2u score %4d:"
-				       "%4d gen %lu hash %d\n",
+				printf("A %5u B %2u C %2u D %3u E %2u score %4d:"
+				       "%4d gen %6lu.%04d\n",
 				       hash->A, hash->B, hash->C, hash->D,
 				       hash->E, s, strings.n_strings - s, count, i);
 				best_run = s;
