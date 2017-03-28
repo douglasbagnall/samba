@@ -239,9 +239,12 @@ static void mutate_hash(struct hash *hash, struct rng *rng, uint r)
 		for (i = 0; i < 2; i++) {
 			int a = rand_range(rng, 0, 255);
 			int b = rand_range(rng, 0, 255);
-			uint16_t c = hash->lut[a];
-			hash->lut[a] = hash->lut[b];
-			hash->lut[b] = c;
+			uint16_t al = hash->lut[a] & 0x00ff;
+			uint16_t ah = hash->lut[a] & 0xff00;
+			uint16_t bl = hash->lut[b] & 0x00ff;
+			uint16_t bh = hash->lut[b] & 0xff00;
+			hash->lut[a] = bh | al;
+			hash->lut[b] = ah | bl;
 		}
 	}
 	hash->score = 0;
