@@ -32,7 +32,9 @@ const uint32_t MAX_D = 1025;
 uint32_t MAX_E;
 
 
-#define POP 500
+#define POP 1000
+#define STAT_P (4 * 1024)
+#define STAT_MEAN(x) (((x) + STAT_P / 2) / STAT_P)
 
 
 struct hash {
@@ -250,7 +252,12 @@ static void mutate_hash(struct hash *hash, struct rng *rng, uint r)
 	hash->score = 0;
 }
 
-static void refresh_pool(struct hash *hashpool, int *defeats, struct rng *rng)
+struct stats {
+	unsigned int victims, mutations, inbreds;
+};
+
+static void refresh_pool(struct hash *hashpool, int *defeats, struct rng *rng,
+			 struct stats *stats)
 {
 	int i;
 	int victims = 0;
@@ -291,10 +298,13 @@ static void refresh_pool(struct hash *hashpool, int *defeats, struct rng *rng)
 		// mutation
 		if ((r & 127) < 6 || inbred) {
 			mutations++;
-			mutate_hash(hash, rng, r);
+			mutate_hash(hash, rng, r & 127);
 			hash->score = 0;
 		}
 	}
+	stats->victims += victims;
+	stats->mutations += mutations;
+	stats->inbreds += inbreds;
 	//printf("victims %d mutations %d inbreds %d\n", victims, mutations, inbreds);
 }
 
@@ -333,7 +343,8 @@ int main(int argc, char *argv[])
 	int defeats[POP];
 
 	struct hash best_hash;
-
+	struct stats stats = {0};
+	
 	if (argc < 3) {
 		printf("usage: %s <string list> <hash bits>\n\n",
 		       argv[0]);
@@ -403,21 +414,31 @@ int main(int argc, char *argv[])
 				defeats[i]++;
 			}
 		}
-		refresh_pool(hashpool, defeats, &rng);
+		refresh_pool(hashpool, defeats, &rng, &stats);
 		count++;
-		if (count % (4 * 1024) == 0) {
+		if (count % STAT_P == 0) {
 			int64_t secs, nano, total;
 			clock_gettime(CLOCK_MONOTONIC, &end);
 			total = end.tv_sec - start.tv_sec;
 			secs = end.tv_sec - mid.tv_sec;
 			nano = end.tv_nsec - mid.tv_nsec;
-			printf("\033[00;37m%luk in %2ld:%02ld:%02ld "
-			       "[+%.2fs]\033[00m scores min %4u mean %4u max %4u\n",
+			printf("\033[00;37m%4luk in %2ld:%02ld:%02ld "
+			       "[+%.2fs]\033[00m "
+			       "scores min %4u mean %4u max %4u "
+			       "\033[00;35m"
+			       "kill %2d mut %2d inbred %2d"
+			       "\033[00m\n",
 			       count >> 10,
 			       total / 3600, (total / 60) % 60,
 			       total % 60, secs + nano * 1e-9,
-			       ls, cs / POP, hs);
+			       ls, cs / POP, hs,
+			       STAT_MEAN(stats.victims),
+			       STAT_MEAN(stats.mutations),
+			       STAT_MEAN(stats.inbreds));
 			mid = end;
+			stats.victims = 0;
+			stats.mutations = 0;
+			stats.inbreds = 0;
 		}
 	}
   win:
