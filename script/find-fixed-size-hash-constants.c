@@ -23,13 +23,13 @@ const uint32_t MIN_A = 0;
 const uint32_t MIN_B = 0;
 const uint32_t MIN_C = 0;
 const uint32_t MIN_D = 0;
-const uint32_t MIN_E = 16;
+uint32_t MIN_E;
 
 const uint32_t MAX_A = 10000;
 const uint32_t MAX_B = 24;
 const uint32_t MAX_C = 24;
-const uint32_t MAX_D = 1000;
-const uint32_t MAX_E = 30;
+const uint32_t MAX_D = 1025;
+uint32_t MAX_E;
 
 
 #define POP 250
@@ -69,15 +69,33 @@ static void rng_init(struct rng *x, uint64_t seed)
 	}
 }
 
-static uint32_t case_hash(struct hash *hash, const char *s)
+static void rng_random_init(struct rng *rng)
+{
+	/* random enough for this */
+	struct timespec t;
+	uint64_t seed;
+	clock_gettime(CLOCK_REALTIME, &t);
+	seed = ((uint64_t)t.tv_nsec << 20) + t.tv_sec;
+	seed ^= (uintptr_t)rng;
+	seed += (uintptr_t)&MIN_A;
+	printf("seeding with %lu\n", seed);
+	rng_init(rng, seed);
+}
+
+static uint32_t casefold_hash(struct hash *hash, const char *s)
 {
 	uint32_t h = hash->A;
+	uint32_t h2 = 0;
 	while (*s != '\0') {
-		uint8_t c = hash->lut[(uint8_t)*s | 32];
-		h = ((h << hash->E) + h) ^ c;
+		uint8_t c = (uint8_t)*s | 32;
+		h2 ^= hash->lut[c];
+		h = ((h << 5) + h) ^ c;
 		s++;
 	}
-	return (h >> hash->B) ^ (h >> hash->E) ^ ((h >> hash->C) + hash->D);
+	h ^= h2;
+	h %= hash->E;
+	//return h + hash->D;
+	return (h >> hash->B) ^ ((h >> hash->C) + hash->D);
 }
 
 struct strings {
@@ -144,7 +162,7 @@ static inline uint32_t rand_range(struct rng *rng, uint32_t low, uint32_t high)
 
 static void init_hash(struct hash *hash, struct rng *rng)
 {
-	int i;
+	unsigned int i;
 	hash->A = rand_range(rng, MIN_A, MAX_A);
 	hash->B = rand_range(rng, MIN_B, MAX_B);
 	hash->C = rand_range(rng, MIN_C, MAX_C);
@@ -166,15 +184,17 @@ static uint32_t test_one_hash(struct hash *hash, struct strings *s, uint8_t *hit
 {
 	int i;
 	uint32_t h = 0;
+	uint32_t collisions = 0;
 	memset(hits, 0, (mask + 1) * sizeof(hits[0]));
 	for (i = 0; i < s->n_strings; i++) {
-		h = case_hash(hash, s->strings[i]) & mask;
+		uint32_t raw = casefold_hash(hash, s->strings[i]);
+		h = raw & mask;
 		if (hits[h]) {
-			break;
+			collisions++;
 		}
 		hits[h] = 1;
 	}
-	return i;
+	return s->n_strings - collisions;
 }
 
 
@@ -224,10 +244,11 @@ static void refresh_pool(struct hash *hashpool, int *defeats, struct rng *rng)
 			hash->E /= 2;
 			break;
 		case 5:
-			for (int j = 0; j < 256; j++) {
-				uint8_t c = hash->lut[j];
-				int b = rand_range(rng, j, 255);
-				hash->lut[j] = hash->lut[b];
+			for (i = 0; i < 2; i++) {
+				int a = rand_range(rng, 0, 255);
+				int b = rand_range(rng, 0, 255);
+				uint16_t c = hash->lut[a];
+				hash->lut[a] = hash->lut[b];
 				hash->lut[b] = c;
 			}
 		}
@@ -235,6 +256,25 @@ static void refresh_pool(struct hash *hashpool, int *defeats, struct rng *rng)
 	//printf("victims %3d mutations %3d\n", victims, mutations);
 }
 
+static void print_collisions(struct hash *hash, struct strings *s, uint32_t mask)
+{
+	uint32_t hits[s->n_strings];
+	int collisions = 0;
+	int i;
+	memset(hits, 0, s->n_strings * sizeof(hits[0]));
+	for (i = 0; i < s->n_strings; i++) {
+		uint32_t h = casefold_hash(hash, s->strings[i]) & mask;
+		if (hits[h]) {
+			collisions++;
+			//printf("collision %4x %s %s\n", h,
+			//       s->strings[i], s->strings[hits[h]]);
+		}
+		else {
+			hits[h] = h;
+		}
+	}
+	printf("%d collisions\n", collisions);
+}
 
 
 int main(int argc, char *argv[])
@@ -251,12 +291,6 @@ int main(int argc, char *argv[])
 	int defeats[POP];
 
 	struct hash best_hash;
-	const int64_t cycle_length = ((1 + MAX_A - MIN_A) *
-				      (1 + MAX_B - MIN_B) *
-				      (1 + MAX_C - MIN_C) *
-				      (1 + MAX_D - MIN_D) *
-				      (1 + MAX_E - MIN_E));
-
 
 	if (argc < 3) {
 		printf("usage: %s <string list> <hash bits>\n\n",
@@ -268,18 +302,24 @@ int main(int argc, char *argv[])
 
 	struct strings strings = load_strings(argv[1]);
 
+	mask = (1 << strtoul(argv[2], NULL, 10)) - 1;
+
+	MAX_E = mask;
+	MIN_E = mask * 19 / 20;
+
+#if 0
 	rng_init(&rng, 12345);
+#else
+	rng_random_init(&rng);
+#endif
 
 	for (i = 0; i < POP; i++) {
 		init_hash(&hashpool[i], &rng);
 	}
-	
-	mask = (1 << strtoul(argv[2], NULL, 10)) - 1;
 
 	hits = malloc((mask + 1) * sizeof(hits[0]));
 
-	printf("mask %u n_strings %d cycle %ld\n", mask, strings.n_strings,
-	       cycle_length);
+	printf("mask %u n_strings %d\n", mask, strings.n_strings);
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	mid = start;
 	while (true) {
@@ -296,17 +336,18 @@ int main(int argc, char *argv[])
 			hs = MAX(s, hs);
 			ls = MIN(s, ls);
 			if (s > best_run){
-				printf("A %4u B %2u C %2u D %3u E %2u run %d\n",
-				       hash->A, hash->B, hash->C, hash->D, hash->E,
-				       s);
+				printf("A %4u B %2u C %2u D %3u E %2u score %4d:"
+				       "%4d gen %lu hash %d\n",
+				       hash->A, hash->B, hash->C, hash->D,
+				       hash->E, s, strings.n_strings - s, count, i);
 				best_run = s;
 				best_hash = *hash;
 				if (s == strings.n_strings) {
-					break;
+					goto win;
 				}
 			}
 		}
-		
+
 		memset(defeats, 0, sizeof(defeats[0]) * POP);
 		for (i = 0; i < POP; i++) {
 			int b = rand_range(&rng, 0, POP - 1);
@@ -318,26 +359,31 @@ int main(int argc, char *argv[])
 		}
 		refresh_pool(hashpool, defeats, &rng);
 		count++;
-		if (count % (64 * 1024) == 0) {
+		if (count % (4 * 1024) == 0) {
 			int64_t secs, nano, total;
 			clock_gettime(CLOCK_MONOTONIC, &end);
 			total = end.tv_sec - start.tv_sec;
 			secs = end.tv_sec - mid.tv_sec;
 			nano = end.tv_nsec - mid.tv_nsec;
-			printf("\033[00;37m%luk (%lu%%) in %2ld:%02ld:%02ld "
+			printf("\033[00;37m%luk in %2ld:%02ld:%02ld "
 			       "[+%.2fs]\033[00m scores min %4u mean %4u max %4u\n",
-			       count >> 10, count * 100 / cycle_length,
+			       count >> 10,
 			       total / 3600, (total / 60) % 60,
 			       total % 60, secs + nano * 1e-9,
 			       ls, cs / POP, hs);
 			mid = end;
 		}
 	}
-
+  win:
+	print_collisions(&best_hash, &strings, mask);
 	printf("final best results\n");
 	printf("run %d A %u B %u C %u D %u E %u\n", best_run,
 	       best_hash.A, best_hash.B,
 	       best_hash.C, best_hash.D,
 	       best_hash.E);
+	for (i = 0; i < 256; i++) {
+		printf("%2x ", best_hash.lut[i]);
+	}
+	printf("\n");
 	return 0;
 }
