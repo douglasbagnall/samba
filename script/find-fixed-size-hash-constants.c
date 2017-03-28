@@ -32,12 +32,12 @@ const uint32_t MAX_D = 1025;
 uint32_t MAX_E;
 
 
-#define POP 250
+#define POP 500
 
 
 struct hash {
 	uint32_t A, B, C, D, E;
-	uint8_t lut[256];
+	uint16_t lut[256];
 };
 
 struct rng {
@@ -177,6 +177,15 @@ static void init_hash(struct hash *hash, struct rng *rng)
 		hash->lut[i] = hash->lut[b];
 		hash->lut[b] = c;
 	}
+	for (i = 0; i < 256; i++) {
+		hash->lut[i] |= i << 8;
+	}
+	for (i = 0; i < 256; i++) {
+		uint8_t c = hash->lut[i];
+		int b = rand_range(rng, i, 255);
+		hash->lut[i] = hash->lut[b];
+		hash->lut[b] = c;
+	}	
 }
 
 static uint32_t test_one_hash(struct hash *hash, struct strings *s, uint8_t *hits,
@@ -214,7 +223,8 @@ static void refresh_pool(struct hash *hashpool, int *defeats, struct rng *rng)
 			hashpool[i].C = hashpool[r &  4 ? a : b].C;
 			hashpool[i].D = hashpool[r &  8 ? a : b].D;
 			hashpool[i].E = hashpool[r & 16 ? a : b].E;
-			memcpy(hash->lut, hashpool[r & 32 ? a : b].lut, 256);
+			memcpy(hash->lut, hashpool[r & 32 ? a : b].lut,
+			       sizeof(hash->lut[0]) * 256);
 			victims++;
 		}
 		r >>= 7;
