@@ -38,6 +38,7 @@ uint32_t MAX_E;
 struct hash {
 	uint32_t A, B, C, D, E;
 	uint16_t lut[256];
+	int score;
 };
 
 struct rng {
@@ -185,88 +186,117 @@ static void init_hash(struct hash *hash, struct rng *rng)
 		int b = rand_range(rng, i, 255);
 		hash->lut[i] = hash->lut[b];
 		hash->lut[b] = c;
-	}	
+	}
+	hash->score = 0;
 }
 
-static uint32_t test_one_hash(struct hash *hash, struct strings *s, uint8_t *hits,
-			      uint32_t mask)
+static uint32_t test_one_hash(struct hash *hash, struct strings *s,
+			      uint8_t *hits, uint32_t mask)
+{
+	if (hash->score == 0) {
+		int i;
+		uint32_t h = 0;
+		uint32_t collisions = 0;
+		memset(hits, 0, (mask + 1) * sizeof(hits[0]));
+		for (i = 0; i < s->n_strings; i++) {
+			uint32_t raw = casefold_hash(hash, s->strings[i]);
+			h = raw & mask;
+			if (hits[h]) {
+				collisions++;
+			}
+			hits[h] = 1;
+		}
+		hash->score = s->n_strings - collisions;
+	}
+	return hash->score;
+}
+
+static void mutate_hash(struct hash *hash, struct rng *rng, uint r)
 {
 	int i;
-	uint32_t h = 0;
-	uint32_t collisions = 0;
-	memset(hits, 0, (mask + 1) * sizeof(hits[0]));
-	for (i = 0; i < s->n_strings; i++) {
-		uint32_t raw = casefold_hash(hash, s->strings[i]);
-		h = raw & mask;
-		if (hits[h]) {
-			collisions++;
+	switch (r) {
+	case 0:
+		hash->A += rand_range(rng, MIN_A, MAX_A);
+		hash->A /= 2;
+		break;
+	case 1:
+		hash->B += rand_range(rng, MIN_B, MAX_B);
+		hash->B /= 2;
+		break;
+	case 2:
+		hash->C += rand_range(rng, MIN_C, MAX_C);
+		hash->C /= 2;
+		break;
+	case 3:
+		hash->D += rand_range(rng, MIN_D, MAX_D);
+		hash->D /= 2;
+		break;
+	case 4:
+		hash->E += rand_range(rng, MIN_E, MAX_E);
+		hash->E /= 2;
+		break;
+	case 5:
+		for (i = 0; i < 2; i++) {
+			int a = rand_range(rng, 0, 255);
+			int b = rand_range(rng, 0, 255);
+			uint16_t c = hash->lut[a];
+			hash->lut[a] = hash->lut[b];
+			hash->lut[b] = c;
 		}
-		hits[h] = 1;
 	}
-	return s->n_strings - collisions;
+	hash->score = 0;
 }
-
 
 static void refresh_pool(struct hash *hashpool, int *defeats, struct rng *rng)
 {
 	int i;
 	int victims = 0;
 	int mutations = 0;
+	int inbreds = 0;
 	for (i = 0; i < POP; i++) {
+		bool inbred = false;
+
 		struct hash *hash = &hashpool[i];
 		uint64_t r = rand64(rng);
 		if (defeats[i] > 1) {
 			int a = rand_range(rng, 0, POP - 1);
 			int b = rand_range(rng, 0, POP - 1);
-			hashpool[i].A = hashpool[r &  1 ? a : b].A;
-			hashpool[i].B = hashpool[r &  2 ? a : b].B;
-			hashpool[i].C = hashpool[r &  4 ? a : b].C;
-			hashpool[i].D = hashpool[r &  8 ? a : b].D;
-			hashpool[i].E = hashpool[r & 16 ? a : b].E;
-			memcpy(hash->lut, hashpool[r & 32 ? a : b].lut,
-			       sizeof(hash->lut[0]) * 256);
+			if (hashpool[a].A == hashpool[b].A &&
+			    hashpool[a].B == hashpool[b].B &&
+			    hashpool[a].C == hashpool[b].C &&
+			    hashpool[a].D == hashpool[b].D &&
+			    hashpool[a].E == hashpool[b].E &&
+			    memcmp(hashpool[a].lut, hashpool[b].lut,
+				   sizeof(hash->lut[0]) * 256) == 0) {
+				hashpool[i] = hashpool[a];
+				inbred = true; /* inbreeding causes mutations */
+				inbreds++;
+			}
+			else {
+				hashpool[i].A = hashpool[r &  1 ? a : b].A;
+				hashpool[i].B = hashpool[r &  2 ? a : b].B;
+				hashpool[i].C = hashpool[r &  4 ? a : b].C;
+				hashpool[i].D = hashpool[r &  8 ? a : b].D;
+				hashpool[i].E = hashpool[r & 16 ? a : b].E;
+				memcpy(hash->lut, hashpool[r & 32 ? a : b].lut,
+				       sizeof(hash->lut[0]) * 256);
+			}
+			hash->score = 0;
 			victims++;
 		}
 		r >>= 7;
 		// mutation
-		if ((r & 127) < 6) {
+		if ((r & 127) < 6 || inbred) {
 			mutations++;
-		}
-		switch (r & 127) {
-		case 0:
-			hash->A += rand_range(rng, MIN_A, MAX_A);
-			hash->A /= 2;
-			break;
-		case 1:
-			hash->B += rand_range(rng, MIN_B, MAX_B);
-			hash->B /= 2;
-			break;
-		case 2:
-			hash->C += rand_range(rng, MIN_C, MAX_C);
-			hash->C /= 2;
-			break;
-		case 3:
-			hash->D += rand_range(rng, MIN_D, MAX_D);
-			hash->D /= 2;
-			break;
-		case 4:
-			hash->E += rand_range(rng, MIN_E, MAX_E);
-			hash->E /= 2;
-			break;
-		case 5:
-			for (i = 0; i < 2; i++) {
-				int a = rand_range(rng, 0, 255);
-				int b = rand_range(rng, 0, 255);
-				uint16_t c = hash->lut[a];
-				hash->lut[a] = hash->lut[b];
-				hash->lut[b] = c;
-			}
+			mutate_hash(hash, rng, r);
+			hash->score = 0;
 		}
 	}
-	//printf("victims %3d mutations %3d\n", victims, mutations);
+	//printf("victims %d mutations %d inbreds %d\n", victims, mutations, inbreds);
 }
 
-static void print_collisions(struct hash *hash, struct strings *s, uint32_t mask)
+static void print_collisions(struct hash *hash, struct strings *s,
+			     uint32_t mask)
 {
 	uint32_t hits[s->n_strings];
 	int collisions = 0;
@@ -297,7 +327,6 @@ int main(int argc, char *argv[])
 	uint64_t count = 0;
 	struct timespec start, end, mid;
 	struct hash hashpool[POP];
-	uint32_t score[POP];
 	int defeats[POP];
 
 	struct hash best_hash;
@@ -315,7 +344,7 @@ int main(int argc, char *argv[])
 	mask = (1 << strtoul(argv[2], NULL, 10)) - 1;
 
 	MAX_E = mask;
-	MIN_E = mask * 19 / 20;
+	MIN_E = mask - mask / 10;
 
 #if 0
 	rng_init(&rng, 12345);
@@ -341,7 +370,6 @@ int main(int argc, char *argv[])
 		for (i = 0; i < POP; i++) {
 			struct hash *hash = &hashpool[i];
 			s = test_one_hash(hash, &strings, hits, mask);
-			score[i] = s;
 			cs += s;
 			hs = MAX(s, hs);
 			ls = MIN(s, ls);
@@ -361,9 +389,14 @@ int main(int argc, char *argv[])
 		memset(defeats, 0, sizeof(defeats[0]) * POP);
 		for (i = 0; i < POP; i++) {
 			int b = rand_range(&rng, 0, POP - 1);
-			if (score[i] > score[b]) {
+			uint64_t r = rand64(&rng);
+			int score_i = hashpool[i].score + (r & 1);
+			r >>= 2;
+			int score_b = hashpool[b].score + (r & 1);
+
+			if (score_i > score_b) {
 				defeats[b]++;
-			} else if (score[i] < score[b]) {
+			} else if (score_b > score_i) {
 				defeats[i]++;
 			}
 		}
