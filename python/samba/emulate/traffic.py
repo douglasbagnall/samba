@@ -834,52 +834,55 @@ def replay(conversations, host=None, lp=None, creds=None,
         dns_hammer = conversations[0]
         dns_hammer.add_dns_storm(dns_rate, duration)
 
-    for c in conversations:
-        pid = c.replay_in_fork_with_delay(start, context)
-        children[pid] = c
+    try:
+        for c in conversations:
+            pid = c.replay_in_fork_with_delay(start, context)
+            children[pid] = c
 
-        pid, status = os.waitpid(-1, os.WNOHANG)
-        if pid:
-            c = children.pop(pid, None)
-            print ("pid %d conversation %s finished early! %d in flight" %
-                   (pid, c, len(children)))
-
-        if (end is not None and time.time() >= end):
-            break
-
-    while children:
-        time.sleep(0.01)
-        pid, status = os.waitpid(-1, os.WNOHANG)
-        #pid, status = os.wait()
-        if pid:
-            c = children.pop(pid, None)
-            print ("process %d finished conversation %s; %d to go" %
-                   (pid, c, len(children)))
-
-        if (end is not None and time.time() >= end):
-            break
-
-    for s in (15, 15, 9):
-        for pid in children:
-            try:
-                os.kill(pid, s)
-            except OSError as e:
-                if e.errno != 3: # don't fail if it has already died
-                    raise
-        time.sleep(1)
-        end = time.time() + 1
-        while children:
             pid, status = os.waitpid(-1, os.WNOHANG)
-            if pid != 0:
+            if pid:
                 c = children.pop(pid, None)
-                print "kill -%d %d KILLED conversation %s; %d to go" % (s, pid, c,
-                                                                        len(children))
-            if time.time() >= end:
+                print ("pid %d conversation %s finished early! %d in flight" %
+                       (pid, c, len(children)))
+
+            if (end is not None and time.time() >= end):
                 break
 
-        if not children:
-            break
-        time.sleep(1)
+        while children:
+            time.sleep(0.01)
+            pid, status = os.waitpid(-1, os.WNOHANG)
+            #pid, status = os.wait()
+            if pid:
+                c = children.pop(pid, None)
+                print ("process %d finished conversation %s; %d to go" %
+                       (pid, c, len(children)))
 
-    if children:
-        print "%d children are missing" % len(children)
+            if (end is not None and time.time() >= end):
+                break
+
+    finally:
+        print "killing %d children" % len(children)
+        for s in (15, 15, 9):
+            for pid in children:
+                try:
+                    os.kill(pid, s)
+                except OSError as e:
+                    if e.errno != 3: # don't fail if it has already died
+                        raise
+            time.sleep(1)
+            end = time.time() + 1
+            while children:
+                pid, status = os.waitpid(-1, os.WNOHANG)
+                if pid != 0:
+                    c = children.pop(pid, None)
+                    print ("kill -%d %d KILLED conversation %s; %d to go" %
+                           (s, pid, c, len(children)))
+                if time.time() >= end:
+                    break
+
+            if not children:
+                break
+            time.sleep(1)
+
+        if children:
+            print "%d children are missing" % len(children)
