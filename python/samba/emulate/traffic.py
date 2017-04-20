@@ -820,44 +820,47 @@ def replay(conversations, host=None, lp=None, creds=None,
         context = ReplayContext(host, lp, creds)
     start = time.time()
 
-    conversations.sort()
+    cstack = sorted(conversations, reverse=True)
 
     if duration is not None:
         end = start + duration
     else:
-        end = conversations[-1].packets[-1].timestamp + 1
+        # end 1 second after the last packet of the last conversation
+        # to start. Conversations other than the last could still be
+        # going, but we don't care.
+        end = cstack[0].packets[-1].timestamp + 10.0
         duration = end - start
+        print "We will stop after %.1f seconds" % duration
 
     children = {}
 
     if dns_rate is not None:
-        dns_hammer = conversations[0]
+        dns_hammer = cstack[-1]
         dns_hammer.add_dns_storm(dns_rate, duration)
 
     try:
-        for c in conversations:
-            pid = c.replay_in_fork_with_delay(start, context)
-            children[pid] = c
+        while True:
+            # we spawn a batch, wait for finishers, then spawn another
+            now = time.time()
+            batch_end = min(now + 2.0, end)
 
-            pid, status = os.waitpid(-1, os.WNOHANG)
-            if pid:
-                c = children.pop(pid, None)
-                print ("pid %d conversation %s finished early! %d in flight" %
-                       (pid, c, len(children)))
+            while cstack:
+                c = cstack.pop()
+                if c.start_time > batch_end:
+                    break
 
-            if (end is not None and time.time() >= end):
-                break
+                pid = c.replay_in_fork_with_delay(start, context)
+                children[pid] = c
 
-        while children:
-            time.sleep(0.01)
-            pid, status = os.waitpid(-1, os.WNOHANG)
-            #pid, status = os.wait()
-            if pid:
-                c = children.pop(pid, None)
-                print ("process %d finished conversation %s; %d to go" %
-                       (pid, c, len(children)))
+            while time.time() < batch_end - 1.0:
+                time.sleep(0.01)
+                pid, status = os.waitpid(-1, os.WNOHANG)
+                if pid:
+                    c = children.pop(pid, None)
+                    print ("process %d finished conversation %s; %d to go" %
+                           (pid, c, len(children)))
 
-            if (end is not None and time.time() >= end):
+            if time.time() >= end:
                 break
 
     finally:
