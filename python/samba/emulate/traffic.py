@@ -414,7 +414,7 @@ class Conversation(object):
         # try to print any exceptions.
         try:
             sys.stdin.close()
-
+            os.close(0)
             sleep_time = gap - SLEEP_OVERHEAD
             if sleep_time > 0:
                 time.sleep(sleep_time)
