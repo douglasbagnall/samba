@@ -12,7 +12,7 @@ import ldb
 from samba.dcerpc import ClientConnection
 from samba.dcerpc import security, drsuapi, misc, nbt, lsa, drsblobs
 from samba.drs_utils import drs_DsBind
-
+import traceback
 
 SLEEP_OVERHEAD = 3e-4
 
@@ -408,18 +408,26 @@ class Conversation(object):
             print >> sys.stderr, "gap is now %f" % gap
 
         pid = os.fork()
-        if pid == 0:
+        if pid != 0:
+            return pid
+        # we must never return, or we'll end up running parts of the
+        # parent's clean-up code. So we work in a try...finally, and
+        # try to print any exceptions.
+        try:
+            sys.stdin.close()
+
             sleep_time = gap - SLEEP_OVERHEAD
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
             miss = t - (time.time() - start)
-            self.msg("starting %s [miss %.3f]" % (self, miss))
-
+            self.msg("starting %s [miss %.3f pid %d]" % (self, miss, os.getpid()))
             self.replay(context)
+        except Exception:
+            print >>sys.stderr, "EXCEPTION in child PID %d" % os.getpid()
+            traceback.print_exc()
+        finally:
             os._exit(0)
-
-        return pid
 
     def replay(self, context=None):
         start = time.time()
@@ -843,39 +851,75 @@ def replay(conversations, host=None, lp=None, creds=None,
             # we spawn a batch, wait for finishers, then spawn another
             now = time.time()
             batch_end = min(now + 2.0, end)
+            print >>sys.stderr, ("now %.1f batch_end %.1f end %.1f" %
+                                 (now, batch_end, end))
 
+            fork_time = 0.0
+            fork_n = 0
             while cstack:
                 c = cstack.pop()
-                if c.start_time > batch_end:
+                print "c.start_time %f (%f ~ %f)" % (c.start_time,
+                                                     c.start_time + start,
+                                                     batch_end)
+                if c.start_time + start > batch_end:
+                    cstack.append(c)
                     break
 
+                st = time.time()
                 pid = c.replay_in_fork_with_delay(start, context)
                 children[pid] = c
+                t = time.time()
+                elapsed = t - st
+                fork_time += elapsed
+                fork_n += 1
+                print >>sys.stderr, "forked %s in pid %s (in %fs)" % (c, pid, elapsed)
+
+            if fork_n:
+                print >> sys.stderr, ("forked %d times in %f seconds (avg %f)" %
+                                      (fork_n, fork_time, fork_time / fork_n))
+
+            print >>sys.stderr, ("finished batch ending %f at %f, switching "
+                                 "to waitpiding" % (batch_end, time.time()))
 
             while time.time() < batch_end - 1.0:
+                print >>sys.stderr, "waitpiding"
+
                 time.sleep(0.01)
-                pid, status = os.waitpid(-1, os.WNOHANG)
+                try:
+                    pid, status = os.waitpid(-1, os.WNOHANG)
+                except OSError as e:
+                    print e
+                    if e.errno != 10: # no child processes
+                        raise
                 if pid:
                     c = children.pop(pid, None)
                     print ("process %d finished conversation %s; %d to go" %
                            (pid, c, len(children)))
 
             if time.time() >= end:
+                print >> sys.stderr, "time to stop"
                 break
-
+    except Exception:
+        print >>sys.stderr, "EXCEPTION in parent"
+        traceback.print_exc()
     finally:
-        print "killing %d children" % len(children)
         for s in (15, 15, 9):
+            print "killing %d children with -%d" % (len(children), s)
             for pid in children:
                 try:
                     os.kill(pid, s)
                 except OSError as e:
+                    print e
                     if e.errno != 3: # don't fail if it has already died
                         raise
-            time.sleep(1)
+            time.sleep(0.5)
             end = time.time() + 1
             while children:
-                pid, status = os.waitpid(-1, os.WNOHANG)
+                try:
+                    pid, status = os.waitpid(-1, os.WNOHANG)
+                except OSError as e:
+                    if e.errno != 10:
+                        raise
                 if pid != 0:
                     c = children.pop(pid, None)
                     print ("kill -%d %d KILLED conversation %s; %d to go" %
@@ -889,3 +933,13 @@ def replay(conversations, host=None, lp=None, creds=None,
 
         if children:
             print "%d children are missing" % len(children)
+
+        # there may be stragglers that were forked just as ^C was hit
+        # and don't appear in the list of children. We can get them
+        # with killpg, but that will also kill us, so this is would be
+        # goodbye, except we cheat and pretend to use ^C (SIG_INTERRUPT),
+        # so as not to have to fuss around writing signal handlers.
+        try:
+            os.killpg(0, 2)
+        except KeyboardInterrupt:
+            print "ignoring fake ^C"
