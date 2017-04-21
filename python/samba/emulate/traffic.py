@@ -372,14 +372,13 @@ class Conversation(object):
         return ("<Conversation %s starting %.3f %d packets>" %
                 (self.endpoints, self.start_time, len(self.packets)))
 
+    __repr__ = __str__
+
     def __iter__(self):
         return iter(self.packets)
 
     def __len__(self):
         return len(self.packets)
-
-    def __cmp__(self, other):
-        return self.start_time - other.start_time
 
     def get_duration(self):
         if len(self.packets) < 2:
@@ -470,7 +469,7 @@ class Conversation(object):
             timestamp = self.start_time + t
             self.add_short_packet(timestamp, 'dns:0', [])
 
-        self.packets.sort()
+        self.packets.sort(key=lambda x: x.timestamp)
 
 
 def ingest_summaries(files):
@@ -828,7 +827,7 @@ def replay(conversations, host=None, lp=None, creds=None,
         context = ReplayContext(host, lp, creds)
     start = time.time()
 
-    cstack = sorted(conversations, reverse=True)
+    cstack = sorted(conversations, key=lambda x: x.start_time, reverse=True)
 
     if duration is not None:
         end = start + duration
