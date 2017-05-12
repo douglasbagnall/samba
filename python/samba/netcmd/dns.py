@@ -469,7 +469,7 @@ def dns_record_match(dns_conn, server, zone, name, record_type, data):
             # Either the zone doesn't exist, or there were no records.
             # We can't differentiate the two.
             return None
-        raise e
+        raise
 
     if not res or res.count == 0:
         return None
@@ -743,7 +743,7 @@ class cmd_zonecreate(Command):
         except WERRORError as e:
             if e.args[0] == werror.WERR_DNS_ERROR_ZONE_ALREADY_EXISTS:
                 self.outf.write('Zone already exists.')
-            raise e
+            raise
 
         self.outf.write('Zone %s created successfully\n' % zone)
 
@@ -777,7 +777,7 @@ class cmd_zonedelete(Command):
         except WERRORError as e:
             if e.args[0] == werror.WERR_DNS_ERROR_ZONE_DOES_NOT_EXIST:
                 self.outf.write('Zone does not exist and so could not be deleted.')
-            raise e
+            raise
 
         self.outf.write('Zone %s deleted successfully\n' % zone)
 
@@ -856,7 +856,7 @@ class cmd_query(Command):
         except WERRORError as e:
             if e.args[0] == werror.WERR_DNS_ERROR_NAME_DOES_NOT_EXIST:
                 self.outf.write('Record or zone does not exist.')
-            raise e
+            raise
 
         print_dnsrecords(self.outf, res)
 
@@ -936,7 +936,7 @@ class cmd_add_record(Command):
         except WERRORError as e:
             if e.args[0] == werror.WERR_DNS_ERROR_NAME_DOES_NOT_EXIST:
                 self.outf.write('Zone does not exist; record could not be added.\n')
-            raise e
+            raise
 
         self.outf.write('Record added successfully\n')
 
@@ -1007,7 +1007,7 @@ class cmd_update_record(Command):
         except WERRORError as e:
             if e.args[0] == werror.WERR_DNS_ERROR_NAME_DOES_NOT_EXIST:
                 self.outf.write('Zone does not exist; record could not be updated.\n')
-            raise e
+            raise
 
         self.outf.write('Record updated successfully\n')
 
@@ -1062,7 +1062,7 @@ class cmd_delete_record(Command):
         except WERRORError as e:
             if e.args[0] == werror.WERR_DNS_ERROR_NAME_DOES_NOT_EXIST:
                 self.outf.write('Zone does not exist; record could not be deleted.\n')
-            raise e
+            raise
 
         self.outf.write('Record deleted successfully\n')
 
