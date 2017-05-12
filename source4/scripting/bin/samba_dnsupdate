@@ -166,7 +166,7 @@ def get_credentials(lp):
 
     except RuntimeError as e:
         os.unlink(ccachename)
-        raise e
+        raise
 
 
 class dnsobj(object):
