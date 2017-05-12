@@ -111,7 +111,7 @@ def _wait_for(fd, readable, writable, error, expiration):
                 raise dns.exception.Timeout
         except select.error, e:
             if e.args[0] != errno.EINTR:
-                raise e
+                raise
         done = True
 
 def _set_polling_backend(fn):
@@ -250,7 +250,7 @@ def _connect(s, address):
         if v[0] != errno.EINPROGRESS and \
                v[0] != errno.EWOULDBLOCK and \
                v[0] != errno.EALREADY:
-            raise v
+            raise
 
 def tcp(q, where, timeout=None, port=53, af=None, source=None, source_port=0,
         one_rr_per_rrset=False):

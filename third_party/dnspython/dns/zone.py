@@ -625,8 +625,7 @@ class _MasterReader(object):
                                      self.current_origin, False)
         except dns.exception.SyntaxError:
             # Catch and reraise.
-            (ty, va) = sys.exc_info()[:2]
-            raise va
+            raise
         except:
             # All exceptions that occur in the processing of rdata
             # are treated as syntax errors.  This is not strictly
