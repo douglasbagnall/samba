@@ -26,6 +26,7 @@ import samba.tests
 import os
 import binascii
 from samba.compat import PY3
+from samba.schannel import CredentialState
 
 class CredentialsTests(samba.tests.TestCaseInTempDir):
 
