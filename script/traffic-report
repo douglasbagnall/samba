@@ -1,0 +1,147 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import optparse
+from collections import defaultdict
+
+sys.path.insert(0, "bin/python")
+
+from samba.emulate import traffic_report
+import samba.getopt as options
+
+
+def import_matplotlib(we_have_x):
+    global matplotlib, plt, cm
+
+    try:
+        import matplotlib
+    except ImportError as e:
+        print ("This software requires the matplotlib library to draw graphs. "
+               "It does not seem to be installed. Try without --graph-dir or "
+               "--pop-up-graphs.")
+        sys.exit(1)
+
+    # If we don't have an X server, we need to divert matplotlib away
+    # from using TK. 'Agg' allows it to draw images.
+    if not we_have_x:
+        matplotlib.use('Agg')
+
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+    matplotlib.rcParams.update({'font.size': 10,
+                                'savefig.facecolor': '#ffffff',
+                                'savefig.edgecolor': '#ffffff',
+                                'figure.autolayout': True,
+    })
+
+
+# a start-somewhere function
+def draw_a_graph(data, popup=True, save_dir=None):
+    plot = plt.plot
+    fig = plt.figure()
+    conversations = defaultdict(list)
+    for d in data:
+        conversations[d.c_id].append(d.time)
+
+    scale = 1.0 / len(conversations)
+    colours = [cm.brg(x * scale) for x in range(len(conversations))]
+
+    for c, colour in zip(conversations.values(), colours):
+        plot(c, '-', color=colour)
+        plot(c, '.', color=colour)
+
+    if save_dir:
+        fn = os.path.join(save_dir, "traffic-seaweed.png")
+        fig.set_size_inches(12, 12)
+        plt.savefig(fn,
+                    dpi=100,
+                    frameon=True,
+                    pad_inches=1,
+                    facecolor='#ffffff',
+                    edgecolor='#ffffff')
+
+    if popup:
+        plt.show()
+
+
+
+def draw_traffic_type_boxplot(data, popup=True, save_dir=None):
+    plot = plt.plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    packet_types = defaultdict(list)
+    for d in data:
+        packet_types['%s:%s' % (d.proto, d.op_id)].append(d.duration)
+
+    plt.boxplot(packet_types.values(), labels=packet_types.keys())
+    ax.set_xticklabels(ax.xaxis.get_majorticklabels(),
+                       rotation=-45, rotation_mode='anchor',
+                       va='top', ha='left')
+
+    if save_dir:
+        fn = os.path.join(save_dir, "traffic-types.png")
+        fig.set_size_inches(12, 12)
+        plt.savefig(fn,
+                    dpi=100,
+                    frameon=True,
+                    pad_inches=1,
+                    facecolor='#ffffff',
+                    edgecolor='#ffffff')
+
+    if popup:
+        plt.show()
+
+
+def main():
+    parser = optparse.OptionParser(("%s [options] <summary-file> <host>" %
+                                    sys.argv[0]))
+
+    sambaopts = options.SambaOptions(parser)
+    parser.add_option_group(options.VersionOptions(parser))
+    parser.add_option('-G', '--graph-dir',
+                      help='put graph images in this directory')
+    parser.add_option('--pop-up-graphs', action="store_true",
+                      help='show graphs directly in GUI if possible')
+
+    opts, args = parser.parse_args()
+
+
+    try:
+        import numpy
+        have_numpy = True
+    except ImportError as e:
+        print ("WARNING: this software requires the numpy library for detailed "
+               "analysis, but it does not seem to be installed. Only basic "
+               "reports wil be available.")
+        have_numpy = False
+
+    if opts.pop_up_graphs:
+        we_have_x = 'DISPLAY' in os.environ
+        if not we_have_x:
+            print ("--pop-up-graphs supplied, but no X server detected. "
+                   "Eith you have some exotic windowing system, or failure is "
+                   "imminent. Let's see.")
+        import_matplotlib(True)
+
+    elif opts.graph_dir:
+        import_matplotlib
+
+    data = []
+
+    try:
+        for filename in args:
+            f = open(filename)
+            parser = traffic_report.get_file_parser(f.next())
+            data.extend(parser(line) for line in f)
+            f.close()
+    except IOError as e:
+        print "Could not read %s: %s" % (filename, e)
+        sys.exit(1)
+
+
+    draw_traffic_type_boxplot(data, popup=opts.pop_up_graphs,
+                              save_dir=opts.graph_dir)
+    #draw_a_graph(data, popup=opts.pop_up_graphs, save_dir=opts.graph_dir)
+
+main()
