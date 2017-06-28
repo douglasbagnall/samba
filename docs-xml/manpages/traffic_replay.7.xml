@@ -407,6 +407,15 @@
 </refsect1>
 
 <refsect1>
+	<title>SEE ALSO</title>
+	<para>
+	<citerefentry>
+	<refentrytitle>traffic_learner</refentrytitle><manvolnum>7</manvolnum>
+	</citerefentry>.
+	</para>
+</refsect1>
+
+<refsect1>
 	<title>AUTHOR</title>
 
 	<para>The original Samba software and related utilities
@@ -414,7 +423,7 @@
 	by the Samba Team as an Open Source project similar
 	to the way the Linux kernel is developed.</para>
 
-	<para>The tcp_replay tool was developed by the Samba team at
+	<para>The traffic_replay tool was developed by the Samba team at
 	Catalyst IT Ltd.</para>
 
 	<para>The traffic_replay manpage was written by Tim Beale.</para>

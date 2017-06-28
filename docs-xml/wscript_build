@@ -47,6 +47,7 @@ manpages='''
          manpages/smbtree.1
          manpages/testparm.1
          manpages/traffic_replay.7
+         manpages/traffic_learner.7
          manpages/vfs_acl_tdb.8
          manpages/vfs_acl_xattr.8
          manpages/vfs_aio_fork.8
