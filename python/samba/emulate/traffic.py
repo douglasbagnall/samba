@@ -1783,7 +1783,7 @@ def generate_stats(statsdir, timing_file):
               "\tmax")
     protocols = sorted(latencies.keys())
     for protocol in protocols:
-        packet_types = sorted(latencies[protocol])
+        packet_types = sorted(latencies[protocol], key=opcode_key)
         for packet_type in packet_types:
             values     = latencies[protocol][packet_type]
             values     = sorted(values)
@@ -1820,6 +1820,13 @@ def generate_stats(statsdir, timing_file):
                          percentile,
                          rng,
                          maxv))
+
+
+def opcode_key(v):
+    try:
+        return "%03d" % int(v)
+    except:
+        return v
 
 
 def calc_percentile(values, percentile):
