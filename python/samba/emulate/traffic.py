@@ -1600,6 +1600,7 @@ def generate_users_and_groups(ldb, instance_id, password,
                               number_of_users, number_of_groups,
                               group_memberships):
     assignments = []
+    groups_added  = 0
 
     create_ou(ldb, instance_id)
 
