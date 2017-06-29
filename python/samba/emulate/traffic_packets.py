@@ -193,10 +193,7 @@ def packet_dcerpc_16(packet, conversation, context):
 def packet_dns_0(packet, conversation, context):
     # query
     name, rtype = context.guess_a_dns_lookup()
-    resolver = dns.resolver.Resolver()
-    resolver.timeout  = 1
-    resolver.lifetime = 1
-    resolver.query(name, rtype)
+    dns.resolver.query(name, rtype)
     return True
 
 packet_dns_1 = null_packet

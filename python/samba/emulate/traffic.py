@@ -229,7 +229,6 @@ class Packet(object):
             print("%f\t%s\t%s\t%s\t%f\tFalse\t%s" %
                   (end, conversation.conversation_id, self.protocol,
                    self.opcode, duration, e))
-            raise
 
     def __cmp__(self, other):
         return self.timestamp - other.timestamp
@@ -285,6 +284,7 @@ class ReplayContext(object):
         self.statsdir                 = statsdir
         self.global_tempdir           = tempdir
         self.domain_sid               = domain_sid
+        self.realm                    = lp.get('realm')
 
         # Bad password attempt controls
         self.badpassword_frequency    = badpassword_frequency
@@ -638,8 +638,7 @@ class ReplayContext(object):
         return c
 
     def guess_a_dns_lookup(self):
-        # XXX at some point do something sensible
-        return ('example.com', 'A')
+        return (self.realm, 'A')
 
     def get_authenticator(self):
         auth = self.machine_creds.new_client_authenticator()
@@ -869,9 +868,10 @@ class DnsHammer(Conversation):
                 (len(self.times), self.duration, self.rate))
 
     def replay_in_fork_with_delay(self, start, context=None, account=None):
-        import pdb
-        pdb.set_trace()
-        Conversation.replay_in_fork_with_delay(self, start, context, account)
+        return Conversation.replay_in_fork_with_delay(self,
+                                                      start,
+                                                      context,
+                                                      account)
 
     def replay(self, context=None):
         start = time.time()
@@ -899,7 +899,6 @@ class DnsHammer(Conversation):
                 end = time.time()
                 duration = end - packet_start
                 print("%f\tDNS\tdns\t0\t%f\tFalse\t%s" % (end, duration, e))
-                raise
 
 
 def ingest_summaries(files, dns_mode='count'):
