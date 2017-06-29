@@ -22,21 +22,45 @@
 		<command>traffic_replay</command>
 		<arg choice="opt">summary-file</arg>
 		<arg choice="opt">dns-hostname</arg>
-		<arg choice="opt">-h</arg>
-		<arg choice="opt">-M|--domain &lt;DOMAIN&gt;</arg>
-		<arg choice="opt">-S|--scale-traffic &lt; scale by factor&gt;</arg>
-		<arg choice="opt">-r|--replay-rate &lt;scale by factor&gt;</arg>
-		<arg choice="opt">-D|--duration &lt;seconds&gt;</arg>
+		<arg choice="opt">-h, --help</arg>
+		<arg choice="opt">-F, --fixed-password &lt;test-password&gt;</arg>
+		<arg choice="opt">-S, --scale-traffic &lt; scale by factor&gt;</arg>
+		<arg choice="opt">-r, --replay-rate &lt;scale by factor&gt;</arg>
+		<arg choice="opt">-D, --duration &lt;seconds&gt;</arg>
+		<arg choice="opt">--traffic-summary &lt;output file&gt;</arg>
+		<arg choice="opt">-I, --instance-id &lt;id&gt;</arg>
+		<arg choice="opt">-K, --prefer-kerberos</arg>
+		<arg choice="opt">-B, --badpassword-frequency &lt;frequency&gt;</arg>
+		<arg choice="opt">--dns-rate &lt;rate&gt;</arg>
+		<arg choice="opt">-t, --timing-data &lt;file&gt;</arg>
+		<arg choice="opt">-U, --username user</arg>
+		<arg choice="opt">--password &lt;password&gt;</arg>
+		<arg choice="opt">-W --workgroup &lt;workgroup&gt;</arg>
+		<arg choice="opt">--realm &lt;realm&gt;</arg>
+		<arg choice="opt">-s, --config-file &lt;file&gt;</arg>
+		<arg choice="opt">-k, --kerberos &lt;kerberos&gt;</arg>
+		<arg choice="opt">--ipaddress &lt;address&gt;</arg>
+		<arg choice="opt">-P, --machine-pass</arg>
+		<arg choice="opt">--option &lt;option&gt;</arg>
+		<arg choice="opt">-d, --debuglevel &lt;debug level&gt;</arg>
+		<arg choice="opt">-V, --version</arg>
+	</cmdsynopsis>
 
-		<arg choice="opt">-n|--number-of-users &lt;total users&gt;</arg>
+	<cmdsynopsis>
+		<command>traffic_replay</command>
+		<arg choice="opt">dns-hostname</arg>
+		<arg choice="opt">-G, --generate-users-only</arg>
+		<arg choice="opt">-F, --fixed-password &lt;test-password&gt;</arg>
+		<arg choice="opt">-n, --number-of-users &lt;total users&gt;</arg>
 		<arg choice="opt">--number-of-groups &lt;total groups&gt;</arg>
 		<arg choice="opt">--average-groups-per-user &lt;average number&gt;</arg>
 		<arg choice="opt">--group-memberships &lt;total memberships&gt;</arg>
+	</cmdsynopsis>
 
-		<arg choice="opt">-W myworkgroup</arg>
-		<arg choice="opt">-U user</arg>
-		<arg choice="opt">-d debuglevel</arg>
-		<arg choice="opt">-V</arg>
+	<cmdsynopsis>
+		<command>traffic_replay</command>
+		<arg choice="opt">dns-hostname</arg>
+		<arg choice="opt">-c|--clean-up</arg>
 	</cmdsynopsis>
 </refsynopsisdiv>
 
@@ -48,8 +72,16 @@
 	of a Samba DC, and to test how well Samba will scale as a network
 	increases in size. It can simulate multiple different hosts making
 	multiple different types of requests to a DC.</para>
+
 	<para>This tool is intended to run against a dedicated test DC (rather
 	than a live DC that is handling real network traffic).</para>
+
+	<para>Note that a side-effect of running this tool is that user
+	accounts will be created on the DC, in order to test various Samba
+	operations. As creating accounts can be very time-consuming, these
+	users will remain on the DC by default. To remove these accounts, use
+	the --clean-up option.
+	</para>
 </refsect1>
 
 <refsect1>
@@ -86,10 +118,17 @@
 	</varlistentry>
 
 	<varlistentry>
-	<term>-M|--domain &lt;DOMAIN&gt;</term>
+	<term>-F|--fixed-password &lt;test-password&gt;</term>
 	<listitem><para>
-	Specifies the Samba domain. Alternatively, you can set the $DOMAIN
-	environmental variable.
+	Test users are created when this tool is run, so that actual Samba
+	activity, such as authorizing users, can be mimicked. This option
+	specifies the password that will be used for any test users that are
+	created.</para>
+
+	<para>Note that any users created by this tool will remain on the DC
+	until you run the --clean-up option. Therefore, the fixed-password
+	option needs to be the same each time the tool is run, otherwise the
+	test users won't authenticate correctly.
 	</para></listitem>
 	</varlistentry>
 
@@ -127,17 +166,48 @@
 		conversations get replayed.
 		</para></listitem>
 		</varlistentry>
+
+		<varlistentry>
+		<term>--traffic-summary &lt;output-file&gt;</term>
+		<listitem><para>
+		Instead of replaying a traffic-model, this option generates a
+		traffic-summary file based on what traffic would be sent. Using
+		a traffic-model allows you to scale the packet rate and number
+		of packets sent. However, using a traffic-model introduces
+		some randomness into the traffic generation. So running the
+		same traffic_replay command multiple times using a model file
+		may result in some differences in the actual traffic sent.
+		However, running the same traffic_replay command multiple times
+		with a traffic-summary file will always result in the same
+		traffic being sent. </para>
+		<para>
+		For taking performance measurements over several test runs,
+		it's recommended to use this option and replay the traffic from
+		a traffic-summary file.
+		</para></listitem>
+		</varlistentry>
 	</itemizedlist>
 	</listitem>
 	</varlistentry>
 
 	<varlistentry>
-	<term>Generate User Options</term>
+	<term>--generate-users-only</term>
 	<listitem><para>Add extra user/groups on the DC to increase the DB
-	size. These extra users aren't used for traffic generation. These
-	options are not valid with --replay-only. Note that generating a large
-	number of users can take a long time, so it is recommended to do this
-	only once using the --generate-users-only option.</para>
+	size. By default, this tool automatically creates test users that map
+	to the traffic conversations being generated. This option allows extra
+	users to be created on top of this. Note that these extra users may
+	not actually used for traffic generation - the traffic generation is
+	still based on the number of conversations from the model/summary file.
+	</para>
+	
+	<para>
+	Generating a large number of users can take a long time, so it this
+	option allows this to be done only once.</para>
+
+	<para>Note that the users created will remain on the DC until the
+	tool is run with the --clean-up option. This means that it is best to
+	only assign group memberships once, i.e. run --clean-up before
+	assigning a different allocation of group memberships.</para>
 	<itemizedlist>
 
 		<varlistentry>
@@ -188,6 +258,53 @@
 		</varlistentry>
 	</itemizedlist>
 	</listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>--clean-up</term>
+	<listitem><para>
+	Cleans up any users and groups that were created by previously running
+	this tool. It is recommended you always clean up after running the tool.
+	</para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>-I|--instance-id &lt;id&gt;</term>
+	<listitem><para>
+	Use this option to run multiple instances of the tool on the same DC at
+	the same time. This adds a prefix to the test users generated to keep
+	them separate on the DC.
+	</para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>-K|--prefer-kerberos</term>
+	<listitem><para>
+	Use Kerberos to authenticate the test users.
+	</para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>-B|--badpassword-frequency &lt;frequency&gt;</term>
+	<listitem><para>
+	Use this option to simulate users trying to authenticate with an
+	incorrect password.
+	</para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>--dns-rate &lt;rate&gt;</term>
+	<listitem><para>
+	Increase the rate at which DNS packets get sent.
+	</para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	<term>-t|--timing-data &lt;file&gt;</term>
+	<listitem><para>
+	This writes extra timing data to the file specified. This is mostly
+	used for reporting options, such as generating graphs.
+	</para></listitem>
 	</varlistentry>
 
 	<varlistentry>
@@ -288,11 +405,14 @@
 	<para>Once you have a traffic-summary file, you can use it to generate
 	traffic. The traffic_replay tool gets passed the traffic-summary file,
 	along with the full DNS hostname of the DC being tested. You also need
-	to provide some user credentials, and the Samba domain (you can omit
-	this if the $DOMAIN environmental variable is set). E.g.</para>
+	to provide some user credentials, and possibly the Samba realm and
+	workgroup (although the realm and workgroup may be determined
+	automatically, for example from the /etc/smb.conf file, if one is 
+	present). E.g.</para>
 
 	<para><command>traffic_replay traffic-summary.txt
-	my-dc.samdom.example.com -UAdmin%password --domain=samdom</command>
+	my-dc.samdom.example.com -UAdmin%password -W samdom
+	--realm=samdom.example.com --fixed-password=blahblah123!</command>
 	</para>
 
 	<para>This simply regenerates Samba activity seen in the traffic
@@ -301,6 +421,15 @@
 	conversation, in order to allow logon and other operations to succeed.
 	The script generates the same types of packets as those seen in the
 	summary.</para>
+
+	<para>Creating users can be quite a time-consuming process, especially
+	if a lot of conversations are being generated. To save time, the test
+	users remain on the DC by default. You will need to run the --clean-up
+	option to remove them, once you have finished generating traffic.
+	Because the same test users are used across multiple runs of the tool,
+	a consistent password for these users needs to be used - this is
+	specified by the --fixed-password option.
+	</para>
 
 	<para>The benefit of this tool over simply using tcprelay is that the
 	traffic generated is independent of any specific network. No setup is
@@ -331,7 +460,7 @@
 	command as a traffic-summary file, e.g.</para>
 
 	<para><command>traffic_replay traffic-model.txt
-	my-dc.samdom.example.com -UAdmin%password --domain=samdom</command>
+	my-dc.samdom.example.com -UAdmin%password</command>
 	</para>
 
 	<para>By default, this will generate 60 seconds worth of traffic based
@@ -356,7 +485,7 @@
 	use:</para>
 
 	<para><command>traffic_replay traffic-model.txt
-	my-dc.samdom.example.com -UAdmin%password --domain=samdom
+	my-dc.samdom.example.com -UAdmin%password --fixed-password=blahblah123!
 	--scale-traffic=10 --duration=120</command></para>
 </refsect2>
 
@@ -376,9 +505,9 @@
 	<para>For example, to populate the DB with an extra 5000 users (note
 	this will take a while), use the command:</para>
 
-	<para><command>traffic_replay traffic-model.txt my-dc.samdom.example.com
-	-UAdmin%password --domain=samdom --fixed-password=blahblah123!
-	--generate-users-only --number-of-users=5000</command></para>
+	<para><command>traffic_replay my-dc.samdom.example.com
+	-UAdmin%password --generate-users-only --fixed-password=blahblah123!
+	--number-of-users=5000</command></para>
 
 	<para>You can also create groups and assign users to groups. The users
 	can be randomly assigned to groups - this includes any extra users
@@ -390,7 +519,7 @@
 	into 10 groups on average, use a command like:</para>
 
 	<para><command>traffic_replay traffic-model.txt my-dc.samdom.example.com
-	-UAdmin%password --domain=samdom --fixed-password=blahblah123!
+	-UAdmin%password --fixed-password=blahblah123!
 	--generate-users-only --number-of-groups=25 --average-groups-per-user=10
 	</command></para>
 
@@ -398,6 +527,7 @@
 	The groups generated have names like STGG-0-xyz.</para>
 </refsect2>
 </refsect1>
+
 
 <refsect1>
 	<title>VERSION</title>
