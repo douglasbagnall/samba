@@ -807,7 +807,7 @@ class Conversation(object):
             miss = t - (time.time() - start)
             self.msg("starting %s [miss %.3f pid %d]" % (self, miss, pid))
             self.replay(context)
-        except Exception as e:
+        except Exception:
             print >>sys.stderr,\
                 ("EXCEPTION in child PID %d, conversation %s" % (pid, self))
             traceback.print_exc(sys.stderr)
@@ -1599,7 +1599,6 @@ def clean_up_accounts(ldb, instance_id):
 def generate_users_and_groups(ldb, instance_id, password,
                               number_of_users, number_of_groups,
                               group_memberships):
-    groups      = []
     assignments = []
 
     create_ou(ldb, instance_id)
@@ -1762,8 +1761,6 @@ def generate_stats(statsdir, timing_file):
         failure_rate = 0
     else:
         failure_rate = failed / duration
-
-    packets = successful + failed
 
     # print the stats in more human-readable format when stdout is going to the
     # console (as opposed to being redirected to a file)
