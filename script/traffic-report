@@ -11,6 +11,7 @@ from samba.emulate import traffic_report
 import samba.getopt as options
 
 OUTPUT_DIR = None
+POP_UP = False
 
 def import_matplotlib(we_have_x):
     global matplotlib, plt, cm
@@ -51,7 +52,7 @@ def maybe_save_img(fig, filename):
 
 
 # a start-somewhere function
-def draw_a_graph(data, popup=True):
+def draw_a_graph(data):
     plot = plt.plot
     fig = plt.figure()
     conversations = defaultdict(list)
@@ -67,12 +68,12 @@ def draw_a_graph(data, popup=True):
 
     maybe_save_img(fig, "traffic-seaweed.png")
 
-    if popup:
+    if POP_UP:
         plt.show()
 
 
 
-def draw_time_vs_duration_by_types(data, popup=True):
+def draw_time_vs_duration_by_types(data):
     plot = plt.plot
     fig = plt.figure()
     ax = plt.subplot2grid((3, 3), (0, 0), colspan=3, rowspan=2)
@@ -108,12 +109,12 @@ def draw_time_vs_duration_by_types(data, popup=True):
                loc='upper left')
     maybe_save_img(fig, "traffic-scatter.png")
 
-    if popup:
+    if POP_UP:
         plt.show()
 
 
 
-def draw_traffic_type_boxplot(data, popup=True):
+def draw_traffic_type_boxplot(data):
     plot = plt.plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -127,7 +128,7 @@ def draw_traffic_type_boxplot(data, popup=True):
                        va='top', ha='left')
     maybe_save_img(fig, "traffic-types.png")
 
-    if popup:
+    if POP_UP:
         plt.show()
 
 
@@ -139,13 +140,14 @@ def main():
     parser.add_option_group(options.VersionOptions(parser))
     parser.add_option('-G', '--graph-dir', default=None,
                       help='put graph images in this directory')
-    parser.add_option('--pop-up-graphs', action="store_true",
+    parser.add_option('--pop-up-graphs', action="store_true", default=False,
                       help='show graphs directly in GUI if possible')
 
     opts, args = parser.parse_args()
 
-    global OUTPUT_DIR
+    global OUTPUT_DIR, POP_UP
     OUTPUT_DIR = opts.graph_dir
+    POP_UP = opts.pop_up_graphs
 
     try:
         import numpy
@@ -178,8 +180,8 @@ def main():
         sys.exit(1)
 
 
-    #draw_traffic_type_boxplot(data, popup=opts.pop_up_graphs)
-    draw_time_vs_duration_by_types(data, popup=opts.pop_up_graphs)
-    #draw_a_graph(data, popup=opts.pop_up_graphs)
+    #draw_traffic_type_boxplot(data)
+    draw_time_vs_duration_by_types(data)
+    #draw_a_graph(data)
 
 main()
