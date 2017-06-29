@@ -87,8 +87,10 @@ def draw_time_vs_duration_by_types(data, basename=''):
     n = len(packet_types)
     colours = [cm.brg(x / float(n)) for x in range(n)]
 
-    for p, colour in zip(packet_types.items(), colours):
-        k, v = p
+
+    labels, values = dict_as_key_sorted_lists(packet_types)
+
+    for k, v,  colour in zip(labels, values, colours):
         s_x, s_y, f_x, f_y = [], [], [], []
         for t, d, succ in v:
             if succ:
@@ -114,6 +116,11 @@ def draw_time_vs_duration_by_types(data, basename=''):
         plt.show()
 
 
+def dict_as_key_sorted_lists(d):
+    items = sorted(d.items())
+    values = [x[1] for x in items]
+    keys = [x[0] for x in items]
+    return keys, values
 
 def draw_traffic_type_boxplot(data, basename=''):
     plot = plt.plot
@@ -121,9 +128,12 @@ def draw_traffic_type_boxplot(data, basename=''):
     ax = fig.add_subplot(111)
     packet_types = defaultdict(list)
     for d in data:
-        packet_types['%s:%s' % (d.proto, d.op_id)].append(d.duration)
+        error = '' if d.success else 'error'
+        packet_types['%s:%s %s' % (d.proto, d.op_id, error)].append(d.duration)
 
-    plt.boxplot(packet_types.values(), labels=packet_types.keys())
+    labels, values = dict_as_key_sorted_lists(packet_types)
+
+    plt.boxplot(values, labels=labels)
     ax.set_xticklabels(ax.xaxis.get_majorticklabels(),
                        rotation=-45, rotation_mode='anchor',
                        va='top', ha='left')
