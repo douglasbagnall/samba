@@ -107,6 +107,42 @@
 </refsect1>
 
 <refsect1>
+	<title>OUTPUT FILE FORMAT</title>
+
+	<para>The output model file describes a Markov model estimating the
+	probability of a packet occuring given the last two packets.</para>
+
+	<para>In JSON, we describe ngrams of the form (x, y) -> { a : 2, b : 3 }
+	as well as a conversation rate (and DNS traffic rate).</para>
+
+	<varlistentry>
+	<term>[Packet x] \t [Packet y] : { </term>
+	<listitem><para>
+	</para></listitem>
+	<listitem><para>
+	[Packet a] : [count of packet],
+	</para></listitem>
+	<listitem><para>
+	</para></listitem>
+	<listitem><para>
+	[Packet b] : [count of packet],
+	</para></listitem>
+	<listitem><para>
+	</para></listitem>
+	<listitem><para>
+	"-" : [count of wait]
+	</para></listitem>
+	</varlistentry>
+	<para>}</para>
+
+	<para>NOTE: "-" represent wait</para>
+
+	<para>Using the counts, they form ratios of which packets will likely
+	be sent.</para>
+
+</refsect1>
+
+<refsect1>
 	<title>VERSION</title>
 
 	<para>This man page is complete for version 4 of the Samba
