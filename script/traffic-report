@@ -72,6 +72,47 @@ def draw_a_graph(data, popup=True):
 
 
 
+def draw_time_vs_duration_by_types(data, popup=True):
+    plot = plt.plot
+    fig = plt.figure()
+    ax = plt.subplot2grid((3, 3), (0, 0), colspan=3, rowspan=2)
+
+    packet_types = defaultdict(list)
+    for d in data:
+        packet_types['%s:%s' % (d.proto, d.op_id)].append(
+            (d.time, d.duration, d.success))
+
+    n = len(packet_types)
+    colours = [cm.brg(x / float(n)) for x in range(n)]
+
+    for p, colour in zip(packet_types.items(), colours):
+        k, v = p
+        s_x, s_y, f_x, f_y = [], [], [], []
+        for t, d, succ in v:
+            if succ:
+                s_x.append(t)
+                s_y.append(d)
+            else:
+                f_x.append(t)
+                f_y.append(d)
+        if s_x:
+            plot(s_x, s_y, '.', color=colour,
+                 label="%s (%d)" % (k, len(s_x)))
+        if (f_x):
+            plot(f_x, f_y, 'x', color=colour,
+                 label='%s error (%d)' % (k, len(f_x)))
+
+    plt.legend(bbox_to_anchor=(0.0, -0.05, 1.0, -0.05),
+               ncol=4,
+               mode="expand",
+               loc='upper left')
+    maybe_save_img(fig, "traffic-scatter.png")
+
+    if popup:
+        plt.show()
+
+
+
 def draw_traffic_type_boxplot(data, popup=True):
     plot = plt.plot
     fig = plt.figure()
@@ -137,7 +178,8 @@ def main():
         sys.exit(1)
 
 
-    draw_traffic_type_boxplot(data, popup=opts.pop_up_graphs)
+    #draw_traffic_type_boxplot(data, popup=opts.pop_up_graphs)
+    draw_time_vs_duration_by_types(data, popup=opts.pop_up_graphs)
     #draw_a_graph(data, popup=opts.pop_up_graphs)
 
 main()
