@@ -49,9 +49,6 @@ def main():
                       help='prefer kerberos when authenticating test users')
     parser.add_option('-I', '--instance-id', type='int', default=0,
                       help='Instance number, when running multiple instances')
-    parser.add_option('-M', '--domain',
-                      type='string', default=None,
-                      help='Domain')
     parser.add_option('-t', '--timing-data',
                       help=('write individual message timing data here '
                             '(- for stdout)'))
@@ -147,9 +144,21 @@ def main():
         print >>sys.stderr, ("--fixed-password not provided")
         sys.exit(1)
 
-    if not opts.domain and "DOMAIN" not in os.environ:
-        print >>sys.stderr, ("Domain not specified, use either the --domain "
-                              "option, or the DOMAIN environment variable")
+    lp = sambaopts.get_loadparm()
+    creds = credopts.get_credentials(lp)
+
+    domain = opts.workgroup
+    if domain:
+        lp.set("workgroup", domain)
+    else:
+        domain = lp.get("workgroup")
+        if domain == "WORKGROUP":
+            print >>sys.stderr, ("NETBIOS domain does not appear to be specified, "
+                                 "use the --workgroup option")
+            sys.exit(1)
+
+    if not opts.realm and not lp.get('realm'):
+        print >>sys.stderr, "Realm not specified, use the --realm option"
         sys.exit(1)
 
     if opts.group_memberships and opts.average_groups_per_user:
@@ -261,9 +270,6 @@ def main():
                               opts.number_of_groups))
         sys.exit(1)
 
-    lp = sambaopts.get_loadparm()
-    creds = credopts.get_credentials(lp)
-
     try:
         ldb = traffic.openLdb(host, creds, lp)
     except:
@@ -325,7 +331,7 @@ def main():
                    badpassword_frequency=opts.badpassword_frequency,
                    prefer_kerberos=opts.prefer_kerberos,
                    statsdir=statsdir,
-                   domain=opts.domain,
+                   domain=domain,
                    base_dn=ldb.domain_dn(),
                    ou=traffic.ou_name(ldb, opts.instance_id),
                    tempdir=tempdir,
