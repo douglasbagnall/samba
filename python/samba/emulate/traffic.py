@@ -683,6 +683,15 @@ class Conversation(object):
         self.msg = random_colour_print()
         self.client_balance = 0.0
 
+    def __cmp__(self, other):
+        if self.start_time is None:
+            if other.start_time is None:
+                return 0
+            return -1
+        if other.start_time is None:
+            return 1
+        return self.start_time - other.start_time
+
     def add_packet(self, packet):
         """Add a packet object to this conversation, making a local copy with
         a conversation-relative timestamp."""
@@ -848,6 +857,26 @@ class Conversation(object):
             return (a, b)
 
         return (b, a)
+
+    def forget_packets_outside_window(self, s, e):
+        new_packets = []
+        for p in self.packets:
+            if p.timestamp < s or p.timestamp > e:
+                continue
+            new_packets.append(p)
+
+        self.packets = new_packets
+        if new_packets:
+            self.start_time = new_packets[0].timestamp
+        else:
+            self.start_time = None
+
+    def renormalise_times(self, start_time):
+        for p in self.packets:
+            p.timestamp -= start_time
+
+        if self.start_time is not None:
+            self.start_time -= start_time
 
 
 class DnsHammer(Conversation):
@@ -1115,25 +1144,42 @@ class TrafficModel(object):
         return c
 
     def generate_conversations(self, rate, duration, packet_rate=1):
-        n = 1 + int(rate * self.conversation_rate[0] * duration /
-                    self.conversation_rate[1])
+
+        # We run the simulation for at least ten times as long as our
+        # desired duration, and take a section near the start.
+        rate_n, rate_t  = self.conversation_rate
+
+        duration2 = max(rate_t, duration * 2)
+        n = duration2 * rate_n / rate_t
+
         server = 1
         client = 2
 
         conversations = []
         while client < n + 2:
-            start = random.uniform(0, duration - 0.5)
+            start = random.uniform(0, duration2)
             c = self.construct_conversation(start,
                                             client,
                                             server,
-                                            hard_stop=duration,
+                                            hard_stop=(duration2 * 5),
                                             packet_rate=packet_rate)
-            if len(c) == 0:
-                continue
+
             conversations.append(c)
             client += 1
-        conversations.sort()
-        return conversations
+
+        conversations2 = []
+        end = duration2
+        start = end - duration
+
+        for c in conversations:
+            c.forget_packets_outside_window(start, end)
+            c.renormalise_times(start)
+            if len(c) != 0:
+                conversations2.append(c)
+
+        print >> sys.stderr, "we have %d conversations" % len(conversations2)
+        conversations2.sort()
+        return conversations2
 
 IP_PROTOCOLS = {
     'dns': '11',
