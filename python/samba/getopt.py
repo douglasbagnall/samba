@@ -46,7 +46,7 @@ class SambaOptions(optparse.OptionGroup):
                         type=str, metavar="OPTION",
                         help="set smb.conf option from command line",
                         callback=self._set_option)
-        self.add_option("--realm", action="callback",
+        self.add_option("--realm", action="callback", dest="realm",
                         type=str, metavar="REALM", help="set the realm name",
                         callback=self._set_realm)
         self._configfile = None
@@ -70,6 +70,7 @@ class SambaOptions(optparse.OptionGroup):
     def _set_realm(self, option, opt_str, arg, parser):
         self._lp.set('realm', arg)
         self.realm = arg
+        setattr(parser.values, option.dest, arg)
 
     def _set_option(self, option, opt_str, arg, parser):
         if arg.find('=') == -1:
@@ -142,7 +143,7 @@ class CredentialsOptions(optparse.OptionGroup):
                         action="callback", type=str,
                         help="Username", callback=self._parse_username)
         self._add_option("-W", "--workgroup", metavar="WORKGROUP",
-                        action="callback", type=str,
+                        action="callback", type=str, dest="workgroup",
                         help="Workgroup", callback=self._parse_workgroup)
         self._add_option("-N", "--no-pass", action="callback",
                         help="Don't ask for a password",
@@ -177,6 +178,7 @@ class CredentialsOptions(optparse.OptionGroup):
 
     def _parse_workgroup(self, option, opt_str, arg, parser):
         self.creds.set_domain(arg)
+        setattr(parser.values, option.dest, arg)
 
     def _set_password(self, option, opt_str, arg, parser):
         self.creds.set_password(arg)
