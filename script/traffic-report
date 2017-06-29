@@ -4,6 +4,7 @@ import sys
 import os
 import optparse
 from collections import defaultdict
+import re
 
 sys.path.insert(0, "bin/python")
 
@@ -52,7 +53,7 @@ def maybe_save_img(fig, filename):
 
 
 # a start-somewhere function
-def draw_a_graph(data):
+def draw_a_graph(data, basename=''):
     plot = plt.plot
     fig = plt.figure()
     conversations = defaultdict(list)
@@ -66,14 +67,14 @@ def draw_a_graph(data):
         plot(c, '-', color=colour)
         plot(c, '.', color=colour)
 
-    maybe_save_img(fig, "traffic-seaweed.png")
+    maybe_save_img(fig, "traffic-seaweed-%s.png" % basename)
 
     if POP_UP:
         plt.show()
 
 
 
-def draw_time_vs_duration_by_types(data):
+def draw_time_vs_duration_by_types(data, basename=''):
     plot = plt.plot
     fig = plt.figure()
     ax = plt.subplot2grid((3, 3), (0, 0), colspan=3, rowspan=2)
@@ -107,14 +108,14 @@ def draw_time_vs_duration_by_types(data):
                ncol=4,
                mode="expand",
                loc='upper left')
-    maybe_save_img(fig, "traffic-scatter.png")
+    maybe_save_img(fig, "traffic-scatter-%s.png" % basename)
 
     if POP_UP:
         plt.show()
 
 
 
-def draw_traffic_type_boxplot(data):
+def draw_traffic_type_boxplot(data, basename=''):
     plot = plt.plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -126,15 +127,16 @@ def draw_traffic_type_boxplot(data):
     ax.set_xticklabels(ax.xaxis.get_majorticklabels(),
                        rotation=-45, rotation_mode='anchor',
                        va='top', ha='left')
-    maybe_save_img(fig, "traffic-types.png")
+    maybe_save_img(fig, "traffic-types-%s.png" % basename)
 
     if POP_UP:
         plt.show()
 
 
 def main():
-    parser = optparse.OptionParser(("%s [options] <summary-file> <host>" %
-                                    sys.argv[0]))
+    parser = optparse.OptionParser(
+        ("%s [options] <timing-file> [<timing-file> [<timing-file>...]]" %
+         sys.argv[0]))
 
     sambaopts = options.SambaOptions(parser)
     parser.add_option_group(options.VersionOptions(parser))
@@ -172,16 +174,19 @@ def main():
     try:
         for filename in args:
             f = open(filename)
+            basename = re.sub(r'\W', '+', os.path.basename(filename))
             parser = traffic_report.get_file_parser(f.next())
-            data.extend(parser(line) for line in f)
+            data.append((filename,
+                         basename,
+                         [parser(line) for line in f]))
             f.close()
     except IOError as e:
         print "Could not read %s: %s" % (filename, e)
         sys.exit(1)
 
+    for filename, basename, times in data:
+        draw_traffic_type_boxplot(times, basename=basename)
+        draw_time_vs_duration_by_types(times, basename=basename)
 
-    #draw_traffic_type_boxplot(data)
-    draw_time_vs_duration_by_types(data)
-    #draw_a_graph(data)
 
 main()
