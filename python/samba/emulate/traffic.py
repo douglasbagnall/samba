@@ -23,27 +23,21 @@ import json
 import math
 import sys
 import signal
-import tempfile
-import shutil
 import itertools
-from math import exp
 
 from collections import OrderedDict, Counter, defaultdict
-import samba
 from samba.emulate import traffic_packets
 from samba.samdb import SamDB
 import ldb
 from ldb import LdbError
 from samba.dcerpc import ClientConnection
-from samba.dcerpc import security, drsuapi, misc, nbt, lsa, drsblobs
+from samba.dcerpc import security, drsuapi, lsa
 from samba.dcerpc import netlogon
 from samba.dcerpc.netlogon import netr_Authenticator
-from samba.dcerpc.netlogon import netr_Credential
 from samba.dcerpc import srvsvc
 from samba.dcerpc import samr
 from samba.drs_utils import drs_DsBind
 import traceback
-from samba.net import Net, LIBNET_JOIN_AUTOMATIC
 from samba.credentials import Credentials, DONT_USE_KERBEROS, MUST_USE_KERBEROS
 from samba.auth import system_session
 from samba.dsdb import UF_WORKSTATION_TRUST_ACCOUNT, UF_PASSWD_NOTREQD
@@ -216,7 +210,7 @@ class Packet(object):
         # Don't display a message for kerberos packets, they're not directly
         # generated they're used to indicate kerberos should be used
         if self.protocol != "kerberos":
-            debug(2, "Conversation(%s) Calling handler %s" % \
+            debug(2, "Conversation(%s) Calling handler %s" %
                      (conversation.conversation_id, fn_name))
 
         start = time.time()
@@ -226,15 +220,15 @@ class Packet(object):
                 # network traffic, or fail
                 end = time.time()
                 duration = end - start
-                print "%f\t%s\t%s\t%s\t%f\tTrue\t" % \
-                     (end, conversation.conversation_id, self.protocol,
-                      self.opcode, duration)
+                print("%f\t%s\t%s\t%s\t%f\tTrue\t" %
+                      (end, conversation.conversation_id, self.protocol,
+                       self.opcode, duration))
         except Exception as e:
             end = time.time()
             duration = end - start
-            print "%f\t%s\t%s\t%s\t%f\tFalse\t%s" % \
+            print("%f\t%s\t%s\t%s\t%f\tFalse\t%s" %
                   (end, conversation.conversation_id, self.protocol,
-                   self.opcode, duration, e)
+                   self.opcode, duration, e))
             raise
 
     def __cmp__(self, other):
@@ -253,7 +247,7 @@ class Packet(object):
             fn = getattr(traffic_packets, fn_name)
             if fn is traffic_packets.null_packet:
                 return False
-        except AttributeError as e:
+        except AttributeError:
             print >>sys.stderr, "missing packet %s" % fn_name
             return False
         return True
@@ -353,7 +347,6 @@ class ReplayContext(object):
         self.dn_map = dn_map
         self.attribute_clue_map = attribute_clue_map
 
-
     def generate_process_local_config(self, account, conversation):
         if account is None:
             return
@@ -396,7 +389,7 @@ class ReplayContext(object):
     def with_random_bad_credentials(self, f, good, bad, failed_last_time):
         if not failed_last_time:
             if (self.badpassword_frequency > 0 and
-                random.random() < self.badpassword_frequency):
+               random.random() < self.badpassword_frequency):
                 try:
                     f(bad)
                 except:
@@ -506,7 +499,6 @@ class ReplayContext(object):
 
     def get_dcerpc_connection(self, new=False):
         guid = '12345678-1234-abcd-ef00-01234567cffb'  # RPC_NETLOGON UUID
-        #'e1af8308-5d1f-11c9-91a4-08002b14a0fa' #EPMv4 UUID
         if self.dcerpc_connections and not new:
             return self.dcerpc_connections[-1]
         c = ClientConnection("ncacn_ip_tcp:%s" % self.server,
@@ -579,7 +571,7 @@ class ReplayContext(object):
         def connect(creds):
             binding_options = 'seal'
             binding_string = "ncacn_ip_tcp:%s[%s]" %\
-                              (self.server, binding_options)
+                             (self.server, binding_options)
             return drsuapi.drsuapi(binding_string, self.lp, creds)
 
         (drs, self.last_drsuapi_bad) = \
@@ -684,6 +676,7 @@ class SamrContext(object):
 
 class Conversation(object):
     conversation_id = None
+
     def __init__(self, start_time=None, endpoints=None):
         self.start_time = start_time
         self.endpoints = endpoints
@@ -799,7 +792,6 @@ class Conversation(object):
         # try to print any exceptions.
 
         try:
-            #debug_lineno(context)
             context.generate_process_local_config(account, self)
             sys.stdin.close()
             os.close(0)
@@ -817,8 +809,7 @@ class Conversation(object):
             self.replay(context)
         except Exception as e:
             print >>sys.stderr,\
-                  ("EXCEPTION in child PID %d, conversation %s" %
-                   (pid, self))
+                ("EXCEPTION in child PID %d, conversation %s" % (pid, self))
             traceback.print_exc(sys.stderr)
         finally:
             sys.stderr.close()
@@ -903,11 +894,11 @@ class DnsHammer(Conversation):
                 fn(self, self, context)
                 end = time.time()
                 duration = end - packet_start
-                print "%f\tDNS\tdns\t0\t%f\tTrue\t" % (end, duration)
+                print("%f\tDNS\tdns\t0\t%f\tTrue\t" % (end, duration))
             except Exception as e:
                 end = time.time()
                 duration = end - packet_start
-                print "%f\tDNS\tdns\t0\t%f\tFalse\t%s" % (end, duration, e)
+                print("%f\tDNS\tdns\t0\t%f\tFalse\t%s" % (end, duration, e))
                 raise
 
 
@@ -1009,7 +1000,8 @@ class TrafficModel(object):
             self.dns_opcounts[k] += v
 
         if len(conversations) > 1:
-            elapsed = conversations[-1].start_time - conversations[0].start_time
+            elapsed =\
+                conversations[-1].start_time - conversations[0].start_time
             self.conversation_rate[0] = len(conversations)
             self.conversation_rate[1] = elapsed
 
@@ -1216,7 +1208,7 @@ OP_DESCRIPTIONS = {
     ('rpc_netlogon', '40'): 'DsrEnumerateDomainTrusts',
     ('rpc_netlogon', '45'): 'NetrLogonSamLogonWithFlags',
     ('rpc_netlogon', '4'): 'NetrServerReqChallenge',
-    ('samr', '0',) : 'Connect',
+    ('samr', '0',): 'Connect',
     ('samr', '16'): 'GetAliasMembership',
     ('samr', '17'): 'LookupNames',
     ('samr', '18'): 'LookupRids',
@@ -1290,7 +1282,8 @@ def replay(conversations,
         print >> sys.stderr, ("we have %d accounts but %d conversations" %
                               (accounts, conversations))
 
-    cstack = zip(sorted(conversations, key=lambda x: x.start_time, reverse=True),
+    cstack = zip(sorted(conversations,
+                        key=lambda x: x.start_time, reverse=True),
                  accounts)
 
     start = time.time()
@@ -1305,7 +1298,7 @@ def replay(conversations,
     end = start + duration
 
     print("Replaying traffic for %u conversations over %d seconds"
-          %(len(conversations), duration))
+          % (len(conversations), duration))
 
     children = {}
     if dns_rate:
@@ -1351,8 +1344,8 @@ def replay(conversations,
                     break
                 if pid:
                     c = children.pop(pid, None)
-                    print >>sys.stderr, ("process %d finished conversation %s; "
-                                         "%d to go" %
+                    print >>sys.stderr, ("process %d finished conversation %s;"
+                                         " %d to go" %
                                          (pid, c, len(children)))
 
             if time.time() >= end:
@@ -1370,7 +1363,6 @@ def replay(conversations,
                 try:
                     os.kill(pid, s)
                 except OSError as e:
-                    print e
                     if e.errno != 3:  # don't fail if it has already died
                         raise
             time.sleep(0.5)
@@ -1420,6 +1412,7 @@ def ou_name(ldb, instance_id):
     return "ou=instance-%d,ou=traffic_replay,%s" % (instance_id,
                                                     ldb.domain_dn())
 
+
 def create_ou(ldb, instance_id):
     ou = ou_name(ldb, instance_id)
     try:
@@ -1462,9 +1455,10 @@ def generate_replay_accounts(ldb, instance_id, number, password):
         accounts.append(account)
     return accounts
 
+
 def generate_traffic_accounts(ldb, instance_id, number, password):
     print >>sys.stderr, ("Generating machine and conversation accounts, "
-                          "as required for %d conversations" % number)
+                         "as required for %d conversations" % number)
     added = 0
     for i in range(number, 0, -1):
         try:
@@ -1513,7 +1507,7 @@ def create_machine_account(ldb, instance_id, netbios_name, machinepass):
         "unicodePwd": utf16pw})
     end = time.time()
     duration = end - start
-    print "%f\t0\tcreate\tmachine\t%f\tTrue\t" % (end, duration)
+    print("%f\t0\tcreate\tmachine\t%f\tTrue\t" % (end, duration))
 
 
 def create_user_account(ldb, instance_id, username, userpass):
@@ -1532,7 +1526,7 @@ def create_user_account(ldb, instance_id, username, userpass):
     })
     end = time.time()
     duration = end - start
-    print "%f\t0\tcreate\tuser\t%f\tTrue\t" % (end, duration)
+    print("%f\t0\tcreate\tuser\t%f\tTrue\t" % (end, duration))
 
 
 def create_group(ldb, instance_id, name):
@@ -1545,15 +1539,16 @@ def create_group(ldb, instance_id, name):
     })
     end = time.time()
     duration = end - start
-    print "%f\t0\tcreate\tgroup\t%f\tTrue\t" % (end, duration)
+    print("%f\t0\tcreate\tgroup\t%f\tTrue\t" % (end, duration))
 
 
 def user_name(instance_id, i):
     return "STGU-%d-%d" % (instance_id, i)
 
+
 def generate_users(ldb, instance_id, number, password):
     users = 0
-    for i in range(number,0, -1):
+    for i in range(number, 0, -1):
         try:
             username = user_name(instance_id, i)
             create_user_account(ldb, instance_id, username, password)
@@ -1568,8 +1563,10 @@ def generate_users(ldb, instance_id, number, password):
 
     return users
 
+
 def group_name(instance_id, i):
     return "STGG-%d-%d" % (instance_id, i)
+
 
 def generate_groups(ldb, instance_id, number):
     groups = 0
@@ -1625,8 +1622,8 @@ def generate_users_and_groups(ldb, instance_id, password,
         add_users_to_groups(ldb, instance_id, assignments)
 
     if (groups_added > 0 and users_added == 0 and
-        number_of_groups != groups_added):
-         print >>sys.stderr, "Warning: the added groups will contain no members"
+       number_of_groups != groups_added):
+        print >>sys.stderr, "Warning: the added groups will contain no members"
 
     print >>sys.stderr, ("Added %d users, %d groups and %d group memberships" %
                          (users_added, groups_added, len(assignments)))
@@ -1640,15 +1637,15 @@ def assign_groups(number_of_groups,
 
     def generate_user_distribution(n):
         dist = []
-        for x in range(1, n+1):
-            p = 1/(x+0.001)
+        for x in range(1, n + 1):
+            p = 1 / (x + 0.001)
             dist.append(p)
         return dist
 
     def generate_group_distribution(n):
         dist = []
-        for x in range(1, n+1):
-            p = 1/(x**1.3)
+        for x in range(1, n + 1):
+            p = 1 / (x**1.3)
             dist.append(p)
         return dist
 
@@ -1660,17 +1657,17 @@ def assign_groups(number_of_groups,
     user_dist  = generate_user_distribution(number_of_users)
 
     group_memberships = math.ceil(
-                            float(group_memberships) *
-                            (float(users_added) / float(number_of_users)))
+        float(group_memberships) *
+        (float(users_added) / float(number_of_users)))
     existing_users  = number_of_users  - users_added  - 1
     existing_groups = number_of_groups - groups_added - 1
     while len(assignments) < group_memberships:
-        user        = random.randint(0, number_of_users-1)
-        group       = random.randint(0, number_of_groups-1)
+        user        = random.randint(0, number_of_users - 1)
+        group       = random.randint(0, number_of_groups - 1)
         probability = group_dist[group] * user_dist[user]
 
         if ((random.random() < probability * 10000) and
-            (group > existing_groups or user > existing_users)):
+           (group > existing_groups or user > existing_users)):
             # the + 1 converts the array index to the corresponding
             # group or user number
             assignments.add(((user + 1), (group + 1)))
@@ -1695,7 +1692,7 @@ def add_users_to_groups(db, instance_id, assignments):
         db.modify(m)
         end = time.time()
         duration = end - start
-        print "%f\t0\tadd\tuser\t%f\tTrue\t" % (end, duration)
+        print("%f\t0\tadd\tuser\t%f\tTrue\t" % (end, duration))
 
 
 def generate_stats(statsdir, timing_file):
@@ -1742,7 +1739,6 @@ def generate_stats(statsdir, timing_file):
                     if packet_type not in failures[protocol]:
                         failures[protocol][packet_type] = 0
 
-
                     if fields[5] == 'True':
                         successful += 1
                     else:
@@ -1774,19 +1770,20 @@ def generate_stats(statsdir, timing_file):
     if sys.stdout.isatty:
         print("Total conversations:   %10d" % conversations)
         print("Successful operations: %10d (%.3f per second)"
-              %(successful, success_rate))
+              % (successful, success_rate))
         print("Failed operations:     %10d (%.3f per second)"
-              %(failed, failure_rate))
+              % (failed, failure_rate))
     else:
-        print("(%d, %d, %d, %.3f, %.3f)" %\
+        print("(%d, %d, %d, %.3f, %.3f)" %
               (conversations, successful, failed, success_rate, failure_rate))
 
     if sys.stdout.isatty:
-        print ("Protocol    Op Code  Description                                "
-               "Count       Failed         Mean       Median          "
-               "95%        Range          Max")
+        print("Protocol    Op Code  Description                               "
+              " Count       Failed         Mean       Median          "
+              "95%        Range          Max")
     else:
-        print "proto\top_code\tdesc\tcount\tfailed\tmean\tmedian\t95%\trange\tmax"
+        print("proto\top_code\tdesc\tcount\tfailed\tmean\tmedian\t95%\trange"
+              "\tmax")
     protocols = sorted(latencies.keys())
     for protocol in protocols:
         packet_types = sorted(latencies[protocol])
@@ -1795,37 +1792,37 @@ def generate_stats(statsdir, timing_file):
             values     = sorted(values)
             count      = len(values)
             failed     = failures[protocol][packet_type]
-            mean       = sum(values)/count
+            mean       = sum(values) / count
             median     = calc_percentile(values, 0.50)
             percentile = calc_percentile(values, 0.95)
             rng        = values[-1] - values[0]
             maxv       = values[-1]
-            desc       = OP_DESCRIPTIONS.get((protocol,packet_type), '')
+            desc       = OP_DESCRIPTIONS.get((protocol, packet_type), '')
             if sys.stdout.isatty:
-                print ("%-12s   %4s  %-35s %12d %12d %12.6f "
-                       "%12.6f %12.6f %12.6f %12.6f"
-                       %  (protocol,
-                           packet_type,
-                           desc,
-                           count,
-                           failed,
-                           mean,
-                           median,
-                           percentile,
-                           rng,
-                           maxv))
+                print("%-12s   %4s  %-35s %12d %12d %12.6f "
+                      "%12.6f %12.6f %12.6f %12.6f"
+                      % (protocol,
+                         packet_type,
+                         desc,
+                         count,
+                         failed,
+                         mean,
+                         median,
+                         percentile,
+                         rng,
+                         maxv))
             else:
-                print "%s\t%s\t%s\t%d\t%d\t%f\t%f\t%f\t%f\t%f" %\
-                    (protocol,
-                     packet_type,
-                     desc,
-                     count,
-                     failed,
-                     mean,
-                     median,
-                     percentile,
-                     rng,
-                     maxv)
+                print("%s\t%s\t%s\t%d\t%d\t%f\t%f\t%f\t%f\t%f"
+                      % (protocol,
+                         packet_type,
+                         desc,
+                         count,
+                         failed,
+                         mean,
+                         median,
+                         percentile,
+                         rng,
+                         maxv))
 
 
 def calc_percentile(values, percentile):
@@ -1840,11 +1837,12 @@ def calc_percentile(values, percentile):
     d1 = values[int(c)] * (k - f)
     return d0 + d1
 
+
 def mk_masked_dir(*path):
     """In a testenv we end up with 0777 diectories that look an alarming
     green colour with ls. Use umask to avoid that."""
     d = os.path.join(*path)
-    mask = os.umask(0077)
+    mask = os.umask(0o077)
     os.mkdir(d)
     os.umask(mask)
     return d
