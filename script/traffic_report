@@ -159,6 +159,10 @@ def main():
     parser.add_option('--pop-up-graphs', action="store_true", default=False,
                       help='show graphs directly in GUI if possible')
 
+    parser.add_option('--summaries', action="store_true",
+                      help='the input files are traffic summaries')
+
+
     opts, args = parser.parse_args()
 
     global OUTPUT_DIR, POP_UP
@@ -189,7 +193,11 @@ def main():
         for filename in args:
             f = open(filename)
             basename = re.sub(r'\W', '+', os.path.basename(filename))
-            parser = traffic_report.get_file_parser(f.next())
+            if opts.summaries:
+                parser = traffic_report.summary_parser
+            else:
+                parser = traffic_report.get_file_parser(f.next())
+            data.extend(parser(line) for line in f)
             data.append((filename,
                          basename,
                          [parser(line) for line in f]))
