@@ -132,6 +132,10 @@ def draw_traffic_type_boxplot(data, basename=''):
     if POP_UP:
         plt.show()
 
+def draw_comparison_of_versions(data):
+    pass
+
+
 
 def main():
     parser = optparse.OptionParser(
@@ -180,9 +184,13 @@ def main():
                          basename,
                          [parser(line) for line in f]))
             f.close()
+
     except IOError as e:
         print "Could not read %s: %s" % (filename, e)
         sys.exit(1)
+
+    if len(data) > 1:
+        draw_comparison_of_versions(data)
 
     for filename, basename, times in data:
         draw_traffic_type_boxplot(times, basename=basename)
