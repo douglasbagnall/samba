@@ -153,11 +153,15 @@ def draw_comparison_of_versions(data):
     pass
 
 
-def draw_comparison_of_summaries(summaries):
+def draw_comparison_of_summaries(summaries, abs=False, only_common=True,
+                                 logscale=False,
+                                 name='traffic-summaries'):
     fig = plt.figure()
     ax = fig.add_subplot(111)
+
     data = {}
     basenames = []
+
     # this is getting fiddly
     totals = defaultdict(int)
     for filename, basename, packets in summaries:
@@ -169,40 +173,47 @@ def draw_comparison_of_summaries(summaries):
             d[k] += 1
             totals[k] += 1
 
-    keys, values = [], []
-    revdata = [(v, k) for k, v in totals.items()]
-    for v, k in sorted(revdata):
+    common_keys = set(totals)
+    for d in data.values():
+        common_keys &= set(d)
+
+    if only_common:
+        for k in totals.keys():
+            if k not in common_keys:
+                del totals[k]
+
+    # order keys by total counts
+    keys, total_values = [], []
+    for v, k in sorted(((v, k) for k, v in totals.items()), reverse=True):
         keys.append(k)
-        values.append(v)
+        total_values.append(v)
 
-    index = np.arange(len(labels))
+    index = np.arange(len(keys))
     bar_width = 0.8 / len(data)
+    colours = [cm.brg(x / float(len(data)))
+               for x in range(len(data))]
 
-    for i, kv in enumerate(data.items()):
-        k, v = kv
-        #XXXX need the zeros. work out the totals first
-        ax.bar(index + i * bar_width, v, bar_width,
-               alpha=opacity,
-               color='b',
-               yerr=std_men,
-               error_kw=error_config,
-               label='Men')
+    i = 0
+    for basename, d in data.items():
+        colour = colours[i]
+        values = [d[k] for k in keys]
+        if not abs:
+            common_values = [d[k] for k in common_keys]
+            vsum = float(sum(common_values)) or 1.0
+            values = [x / vsum for x in values]
 
-rects2 = plt.bar(index + bar_width, means_women, bar_width,
-                 alpha=opacity,
-                 color='r',
-                 yerr=std_women,
-                 error_kw=error_config,
-                 label='Women')
+        ax.bar(index + i * bar_width, values, bar_width,
+               color=colour, log=logscale,
+               label='%s' % basename)
+        i += 1
 
+    plt.xticks(index + bar_width / 2, totals.keys())
+    ax.set_xticklabels(totals.keys(),
+                       rotation=-45, rotation_mode='anchor',
+                       va='top', ha='left')
 
-
-    ax.bar(values, labels=labels)
-    #ax.set_xticklabels(labels,
-    #                   rotation=-45, rotation_mode='anchor',
-    #                   va='top', ha='left')
-    #plt.plot(values)
-    maybe_save_img(fig, "traffic-summaries-%s.png" % '-'.join(basenames))
+    plt.legend()
+    maybe_save_img(fig, "%s-%s.png" % (name, '-'.join(basenames)))
     if POP_UP:
         plt.show()
 
@@ -268,6 +279,15 @@ def main():
 
     if opts.summaries:
         draw_comparison_of_summaries(data)
+        draw_comparison_of_summaries(data, False, False, False,
+                                     "traffic-summaries-all")
+        draw_comparison_of_summaries(data, False, True, True,
+                                     "traffic-summaries-log")
+        draw_comparison_of_summaries(data, False, False, True,
+                                     "traffic-summaries-log-all")
+        draw_comparison_of_summaries(data, True, True, False,
+                                     "traffic-summaries-abs")
+
         sys.exit()
 
     if len(data) > 1:
