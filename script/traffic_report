@@ -139,8 +139,10 @@ def draw_traffic_type_boxplot(data, basename='', violin=False):
 
     labels, values = dict_as_key_sorted_lists(packet_types)
 
-    plt.boxplot(values, labels=labels)
-    ax.set_xticklabels(ax.xaxis.get_majorticklabels(),
+    plot(values)
+    index = np.arange(len(labels))
+    plt.xticks(index, labels)
+    ax.set_xticklabels(labels,
                        rotation=-45, rotation_mode='anchor',
                        va='top', ha='left')
     maybe_save_img(fig, "traffic-types-%s.png" % basename)
@@ -207,8 +209,8 @@ def draw_comparison_of_summaries(summaries, abs=False, only_common=True,
                label='%s' % basename)
         i += 1
 
-    plt.xticks(index + bar_width / 2, totals.keys())
-    ax.set_xticklabels(totals.keys(),
+    plt.xticks(index + bar_width / 2, keys)
+    ax.set_xticklabels(keys,
                        rotation=-45, rotation_mode='anchor',
                        va='top', ha='left')
 
