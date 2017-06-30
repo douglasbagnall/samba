@@ -45,7 +45,6 @@ def summary_parser(line):
     src = int(src)
     dest = int(dest)
     has_extra = len(fields) > 8
-    success = success == 'True'
 
     return SummaryLine(float(timestamp),
                        ip_protocol,
@@ -53,5 +52,5 @@ def summary_parser(line):
                        int(src),
                        int(dest),
                        protocol,
-                       op_id,
+                       opcode,
                        desc, has_extra)
