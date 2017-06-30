@@ -118,13 +118,18 @@ def draw_time_vs_duration_by_types(data, basename=''):
 
 
 def dict_as_key_sorted_lists(d):
-    items = sorted(d.items())
-    values = [x[1] for x in items]
-    keys = [x[0] for x in items]
+    keys, values = [], []
+    for k, v in sorted(d.items()):
+        keys.append(k)
+        values.append(v)
     return keys, values
 
-def draw_traffic_type_boxplot(data, basename=''):
-    plot = plt.plot
+
+def draw_traffic_type_boxplot(data, basename='', violin=False):
+    if violin:
+        plot = plt.violinplot
+    else:
+        plot = plt.boxplot
     fig = plt.figure()
     ax = fig.add_subplot(111)
     packet_types = defaultdict(list)
@@ -213,6 +218,7 @@ def main():
 
     for filename, basename, times in data:
         draw_traffic_type_boxplot(times, basename=basename)
+        draw_traffic_type_boxplot(times, basename=basename, violin=True)
         draw_time_vs_duration_by_types(times, basename=basename)
 
 
