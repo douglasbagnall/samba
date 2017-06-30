@@ -1156,6 +1156,9 @@ class TrafficModel(object):
         client = 2
 
         conversations = []
+        end = duration2
+        start = end - duration
+
         while client < n + 2:
             start = random.uniform(0, duration2)
             c = self.construct_conversation(start,
@@ -1164,22 +1167,16 @@ class TrafficModel(object):
                                             hard_stop=(duration2 * 5),
                                             packet_rate=packet_rate)
 
-            conversations.append(c)
-            client += 1
-
-        conversations2 = []
-        end = duration2
-        start = end - duration
-
-        for c in conversations:
             c.forget_packets_outside_window(start, end)
             c.renormalise_times(start)
             if len(c) != 0:
-                conversations2.append(c)
+                conversations.append(c)
+            client += 1
 
-        print >> sys.stderr, "we have %d conversations" % len(conversations2)
-        conversations2.sort()
-        return conversations2
+        print >> sys.stderr, ("we have %d conversations at rate %f" %
+                              (len(conversations), rate))
+        conversations.sort()
+        return conversations
 
 IP_PROTOCOLS = {
     'dns': '11',
