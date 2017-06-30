@@ -1150,7 +1150,7 @@ class TrafficModel(object):
         rate_n, rate_t  = self.conversation_rate
 
         duration2 = max(rate_t, duration * 2)
-        n = duration2 * rate_n / rate_t
+        n = rate * duration2 * rate_n / rate_t
 
         server = 1
         client = 2
