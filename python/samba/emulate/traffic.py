@@ -1134,7 +1134,7 @@ class TrafficModel(object):
             else:
                 log_wait = random.uniform(*NO_WAIT_LOG_TIME_RANGE)
                 wait = math.exp(log_wait) / packet_rate
-                timestamp += math.exp(log_wait)
+                timestamp += wait
                 if hard_stop is not None and timestamp > hard_stop:
                     break
                 c.add_short_packet(timestamp, p, extra)
