@@ -15,7 +15,7 @@ OUTPUT_DIR = None
 POP_UP = False
 
 def import_matplotlib(we_have_x):
-    global matplotlib, plt, cm
+    global matplotlib, plt, cm, np
 
     try:
         import matplotlib
@@ -32,6 +32,7 @@ def import_matplotlib(we_have_x):
 
     import matplotlib.pyplot as plt
     from matplotlib import cm
+    import numpy as np
     matplotlib.rcParams.update({'font.size': 10,
                                 'savefig.facecolor': '#ffffff',
                                 'savefig.edgecolor': '#ffffff',
@@ -165,12 +166,12 @@ def main():
 
     opts, args = parser.parse_args()
 
-    global OUTPUT_DIR, POP_UP
+    global OUTPUT_DIR, POP_UP, np
     OUTPUT_DIR = opts.graph_dir
     POP_UP = opts.pop_up_graphs
 
     try:
-        import numpy
+        import numpy as np
         have_numpy = True
     except ImportError as e:
         print ("WARNING: this software requires the numpy library for detailed "
