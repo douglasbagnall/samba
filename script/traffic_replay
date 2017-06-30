@@ -70,7 +70,8 @@ def main():
                            help='Increase the number of conversations by '
                            'this factor')
     model_group.add_option('-D', '--duration', type='float', default=None,
-                           help='Run model for this long (approx). Default 60s')
+                           help=('Run model for this long (approx). '
+                                 'Default 60s for models'))
     model_group.add_option('-r', '--replay-rate', type='float', default=1.0,
                            help='Replay the traffic faster by this factor')
     model_group.add_option('--traffic-summary',
