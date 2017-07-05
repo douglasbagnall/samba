@@ -13,9 +13,50 @@ import samba.getopt as options
 
 OUTPUT_DIR = None
 POP_UP = False
+#GRAPH_STYLE = 'ggplot'
+GRAPH_STYLE = 'fivethirtyeight'
+GRAPH_STYLE = 'bmh'
+#GRAPH_STYLE = 'seaborn-white'
+
+# DISTRIBUTED_DOTS tries to make things of similar colour differ in
+# shape.
+
+DISTRIBUTED_DOTS = {
+    "cldap:3": '.',
+    "drsuapi:0": '1',
+    "drsuapi:1": '2',
+    "drsuapi:12": '3',
+    "drsuapi:13": '4',
+    "ldap:0": '|',
+    "ldap:3": '_',
+    "lsarpc:15": '1',
+    "lsarpc:76": '2',
+    "lsarpc:77": '3',
+    "nbns:0": '.',
+    "rpc_netlogon:29": 'x',
+    "rpc_netlogon:30": '4',
+    "rpc_netlogon:39": '1',
+    "rpc_netlogon:40": '2',
+    "rpc_netlogon:45": '3',
+    "samr:1": '_',
+    "samr:3": '|',
+    "samr:5": '+',
+    "samr:6": 'x',
+    "samr:7": '1',
+    "samr:8": '2',
+    "samr:16": '3',
+    "samr:17": '4',
+    "samr:18": '|',
+    "samr:34": '_',
+    "samr:36": '+',
+    "samr:39": 'x',
+    "samr:64": '1',
+    "srvsvc:16": '|',
+    "srvsvc:21": '_',
+}
 
 def import_matplotlib(we_have_x):
-    global matplotlib, plt, cm, np
+    global matplotlib, plt, cm, np, colourmap
 
     try:
         import matplotlib
@@ -33,11 +74,16 @@ def import_matplotlib(we_have_x):
     import matplotlib.pyplot as plt
     from matplotlib import cm
     import numpy as np
-    matplotlib.rcParams.update({'font.size': 10,
-                                'savefig.facecolor': '#ffffff',
-                                'savefig.edgecolor': '#ffffff',
-                                'figure.autolayout': True,
-    })
+    #matplotlib.rcParams.update({'font.size': 10,
+    #                            'savefig.facecolor': '#ffffff',
+    #                            'savefig.edgecolor': '#ffffff',
+    #                            'figure.autolayout': True,
+    #})
+    #colourmap = cm.viridis
+    colourmap = cm.gnuplot
+    #colourmap = cm.jet
+    plt.style.use(GRAPH_STYLE)
+    matplotlib.rcParams.update({'font.size': 11,})
 
 
 def maybe_save_img(fig, filename):
@@ -46,10 +92,11 @@ def maybe_save_img(fig, filename):
     fig.set_size_inches(12, 12)
     plt.savefig(fn,
                 dpi=100,
-                frameon=True,
-                pad_inches=1,
-                facecolor='#ffffff',
-                edgecolor='#ffffff')
+                #frameon=True,
+                #pad_inches=1,
+                #facecolor='#ffffff',
+                #edgecolor='#ffffff'
+    )
 
 
 
@@ -62,7 +109,7 @@ def draw_a_graph(data, basename=''):
         conversations[d.c_id].append(d.time)
 
     scale = 1.0 / len(conversations)
-    colours = [cm.brg(x * scale) for x in range(len(conversations))]
+    colours = [colourmap(x * scale) for x in range(len(conversations))]
 
     for c, colour in zip(conversations.values(), colours):
         plot(c, '-', color=colour)
@@ -74,24 +121,36 @@ def draw_a_graph(data, basename=''):
         plt.show()
 
 
+def draw_time_vs_duration_by_types(data, basename='', log=False,
+                                   dots={}, filter=''):
+    if log:
+        basename = '%s-log' % basename
+        plot = plt.semilogy
+    else:
+        plot = plt.plot
 
-def draw_time_vs_duration_by_types(data, basename=''):
-    plot = plt.plot
+    if filter:
+        basename = '%s-%s' % (basename, re.sub('\W', '_', filter))
+        accept = re.compile(filter).search
+    else:
+        def accept(x):
+            return True
+
     fig = plt.figure()
     ax = plt.subplot2grid((3, 3), (0, 0), colspan=3, rowspan=2)
 
     packet_types = defaultdict(list)
     for d in data:
-        packet_types['%s:%s' % (d.proto, d.op_id)].append(
-            (d.time, d.duration, d.success))
+        if accept(d.proto):
+            packet_types['%s:%s' % (d.proto, d.op_id)].append(
+                (d.time, d.duration, d.success))
 
     n = len(packet_types)
-    colours = [cm.brg(x / float(n)) for x in range(n)]
-
+    colours = [colourmap(x / float(n)) for x in range(n)]
 
     labels, values = dict_as_key_sorted_lists(packet_types)
 
-    for k, v,  colour in zip(labels, values, colours):
+    for k, v, colour in zip(labels, values, colours):
         s_x, s_y, f_x, f_y = [], [], [], []
         for t, d, succ in v:
             if succ:
@@ -101,10 +160,10 @@ def draw_time_vs_duration_by_types(data, basename=''):
                 f_x.append(t)
                 f_y.append(d)
         if s_x:
-            plot(s_x, s_y, '.', color=colour,
+            plot(s_x, s_y, dots.get(k, '.'), color=colour,
                  label="%s (%d)" % (k, len(s_x)))
-        if (f_x):
-            plot(f_x, f_y, 'x', color=colour,
+        if f_x:
+            plot(f_x, f_y, 'd', color=colour,
                  label='%s error (%d)' % (k, len(f_x)))
 
     plt.legend(bbox_to_anchor=(0.0, -0.05, 1.0, -0.05),
@@ -145,8 +204,10 @@ def draw_traffic_type_boxplot(data, basename='', violin=False):
     ax.set_xticklabels(labels,
                        rotation=-45, rotation_mode='anchor',
                        va='top', ha='left')
-    maybe_save_img(fig, "traffic-types-%s.png" % basename)
-
+    if violin:
+        maybe_save_img(fig, "traffic-types-violin-%s.png" % basename)
+    else:
+        maybe_save_img(fig, "traffic-types-%s.png" % basename)
     if POP_UP:
         plt.show()
 
@@ -192,7 +253,7 @@ def draw_comparison_of_summaries(summaries, abs=False, only_common=True,
 
     index = np.arange(len(keys))
     bar_width = 0.8 / len(data)
-    colours = [cm.brg(x / float(len(data)))
+    colours = [colourmap(x / float(len(data)))
                for x in range(len(data))]
 
     i = 0
@@ -298,7 +359,21 @@ def main():
     for filename, basename, times in data:
         draw_traffic_type_boxplot(times, basename=basename)
         draw_traffic_type_boxplot(times, basename=basename, violin=True)
-        draw_time_vs_duration_by_types(times, basename=basename)
+        draw_time_vs_duration_by_types(times, basename=basename,
+                                       dots=DISTRIBUTED_DOTS)
+        draw_time_vs_duration_by_types(times, basename=basename,
+                                       log=True, dots=DISTRIBUTED_DOTS)
+        for family in ('ldap',
+                       "drsuapi",
+                       "lsarpc",
+                       "nbns",
+                       "rpc_netlogon",
+                       "samr",
+                       "srvsvc"):
+            draw_time_vs_duration_by_types(times, basename=basename,
+                                           log=False, filter=family)
+            draw_time_vs_duration_by_types(times, basename=basename,
+                                           log=True, filter=family)
 
 
 main()
