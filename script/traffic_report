@@ -184,6 +184,14 @@ def dict_as_key_sorted_lists(d):
     return keys, values
 
 
+def times_to_packet_durations(times):
+    packet_types = defaultdict(list)
+    for d in times:
+        error = '' if d.success else ' error'
+        packet_types['%s:%s%s' % (d.proto, d.op_id, error)].append(d.duration)
+    return packet_types
+
+
 def draw_traffic_type_boxplot(data, basename='', violin=False):
     if violin:
         plot = plt.violinplot
@@ -191,10 +199,7 @@ def draw_traffic_type_boxplot(data, basename='', violin=False):
         plot = plt.boxplot
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    packet_types = defaultdict(list)
-    for d in data:
-        error = '' if d.success else 'error'
-        packet_types['%s:%s %s' % (d.proto, d.op_id, error)].append(d.duration)
+    packet_types = times_to_packet_durations(data)
 
     labels, values = dict_as_key_sorted_lists(packet_types)
 
@@ -212,9 +217,68 @@ def draw_traffic_type_boxplot(data, basename='', violin=False):
         plt.show()
 
 
-def draw_comparison_of_versions(data):
-    pass
+def draw_comparison_of_versions(data, log=False):
+    if log:
+        plot = plt.semilogy
+    else:
+        plot = plt.plot
 
+    fig, ax = plt.subplots()
+    series = defaultdict(dict)
+    basenames = []
+    for filename, basename, times in data:
+        basenames.append(basename)
+        packet_types = times_to_packet_durations(times)
+        for k, v in packet_types.items():
+            bands = np.percentile(v, [9.0, 50.0, 91.0])
+            series[k][basename] = bands
+
+    for k, d in series.items():
+        x, tops, medians, bottoms, labels = [], [], [], [], []
+        for i, b in enumerate(basenames):
+            if b in d:
+                x.append(i)
+                labels.append(b)
+                tops.append(d[b][0])
+                medians.append(d[b][1])
+                bottoms.append(d[b][2])
+            else:
+                labels.append('')
+        plot(x, medians, 'k', color='#cc0000')
+        plot(x, medians, '.', color='#cc0000')
+        plt.fill_between(x, bottoms, tops,
+                         alpha=0.3, #edgecolor='#ff0000',
+                         facecolor='#ffcccc',
+                         antialiased=True)
+
+        index = np.arange(len(basenames))
+        plt.xticks(index, labels)
+
+        #ax.set_xticklabels(labels,
+        #                   rotation=-45, rotation_mode='anchor',
+        #                   va='top', ha='left')
+
+        if POP_UP:
+            plt.show()
+        maybe_save_img(fig, "multi-%s%s-%s.png" %
+                       (re.sub('\W', '-', k),
+                        '-log' if log else '',
+                        '-'.join(basenames)))
+        plt.cla()
+
+
+    print series['nbns:0']
+
+
+def draw_histograms_of_durations(times, basename):
+    fig, ax = plt.subplots()
+    for k, v in times_to_packet_durations(times).items():
+        plt.hist(v, bins=int(len(v) ** 0.5) + 20)
+        if POP_UP:
+            plt.show()
+        maybe_save_img(fig, "histogram-%s-%s.png" %
+                       (basename, re.sub('\W', '-', k)))
+        plt.cla()
 
 def draw_comparison_of_summaries(summaries, abs=False, only_common=True,
                                  logscale=False,
@@ -354,7 +418,10 @@ def main():
         sys.exit()
 
     if len(data) > 1:
+        print "looking at %d files" % len(data)
         draw_comparison_of_versions(data)
+        draw_comparison_of_versions(data, log=True)
+        sys.exit()
 
     for filename, basename, times in data:
         draw_traffic_type_boxplot(times, basename=basename)
@@ -375,5 +442,6 @@ def main():
             draw_time_vs_duration_by_types(times, basename=basename,
                                            log=True, filter=family)
 
+        draw_histograms_of_durations(times, basename)
 
 main()
