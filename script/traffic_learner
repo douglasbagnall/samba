@@ -19,10 +19,6 @@
 
 import sys
 import argparse
-from collections import Counter
-import json
-import random
-import math
 
 sys.path.insert(0, "bin/python")
 from samba.emulate import traffic
