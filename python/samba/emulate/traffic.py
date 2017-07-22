@@ -1225,7 +1225,6 @@ OP_DESCRIPTIONS = {
     ('drsuapi', '4'): 'DsReplicaUpdateRefs',
     ('epm', '3'): 'Map',
     ('kerberos', ''): '',
-    ('ldap', ''): '',
     ('ldap', '0'): 'bindRequest',
     ('ldap', '1'): 'bindResponse',
     ('ldap', '2'): 'unbindRequest',
