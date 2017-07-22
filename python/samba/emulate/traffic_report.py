@@ -40,16 +40,18 @@ def parser_v1(line):
 
 
 TIMING_FILE_PARSERS = {
-    'time\tconv\tprotocol\ttype\tduration\tsuccessful\terror\n' : parser_v1
+    'time\tconv\tprotocol\ttype\tduration\tsuccessful\terror\n': parser_v1
 }
 
 
 def get_file_parser(line):
     return TIMING_FILE_PARSERS[line]
 
+
 SummaryLine = namedtuple('SummaryLine',
                          'time, ip_protocol, stream_id, src, dest, '
                          'proto, op_id, desc, has_extra')
+
 
 def summary_parser(line):
     fields = line.rstrip('\n').split('\t')
