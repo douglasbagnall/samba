@@ -37,7 +37,7 @@ GRAPH_STYLE = 'bmh'
 #GRAPH_STYLE = 'seaborn-white'
 
 # DISTRIBUTED_DOTS tries to make things of similar colour differ in
-# shape.
+# shape, so that you can tell them apart.
 
 DISTRIBUTED_DOTS = {
     "cldap:3": '.',
@@ -73,12 +73,13 @@ DISTRIBUTED_DOTS = {
     "srvsvc:21": '_',
 }
 
+
 def import_matplotlib(we_have_x):
     global matplotlib, plt, cm, np, colourmap
 
     try:
         import matplotlib
-    except ImportError as e:
+    except ImportError:
         print ("This software requires the matplotlib library to draw graphs. "
                "It does not seem to be installed. Try without --graph-dir or "
                "--pop-up-graphs.")
@@ -101,7 +102,7 @@ def import_matplotlib(we_have_x):
     colourmap = cm.gnuplot
     #colourmap = cm.jet
     plt.style.use(GRAPH_STYLE)
-    matplotlib.rcParams.update({'font.size': 11,})
+    matplotlib.rcParams.update({'font.size': 11})
 
 
 def maybe_save_img(fig, filename):
@@ -115,7 +116,6 @@ def maybe_save_img(fig, filename):
                 #facecolor='#ffffff',
                 #edgecolor='#ffffff'
     )
-
 
 
 # a start-somewhere function
@@ -265,7 +265,8 @@ def draw_comparison_of_versions(data, log=False):
         plot(x, medians, 'k', color='#cc0000')
         plot(x, medians, '.', color='#cc0000')
         plt.fill_between(x, bottoms, tops,
-                         alpha=0.3, #edgecolor='#ff0000',
+                         alpha=0.3,
+                         #edgecolor='#ff0000',
                          facecolor='#ffcccc',
                          antialiased=True)
 
@@ -297,6 +298,7 @@ def draw_histograms_of_durations(times, basename):
         maybe_save_img(fig, "histogram-%s-%s.png" %
                        (basename, re.sub('\W', '-', k)))
         plt.cla()
+
 
 def draw_comparison_of_summaries(summaries, abs=False, only_common=True,
                                  logscale=False,
@@ -378,7 +380,6 @@ def main():
     parser.add_option('--summaries', action="store_true",
                       help='the input files are traffic summaries')
 
-
     opts, args = parser.parse_args()
 
     global OUTPUT_DIR, POP_UP, np
@@ -389,9 +390,9 @@ def main():
         import numpy as np
         have_numpy = True
     except ImportError as e:
-        print ("WARNING: this software requires the numpy library for detailed "
-               "analysis, but it does not seem to be installed. Only basic "
-               "reports wil be available.")
+        print ("WARNING: this software requires the numpy library for "
+               "detailed analysis, but it does not seem to be "
+               "installed. Only basic reports wil be available.")
         have_numpy = False
 
     if opts.pop_up_graphs or opts.graph_dir is not None:
@@ -401,7 +402,6 @@ def main():
                    "Eith you have some exotic windowing system, or failure is "
                    "imminent. Let's see.")
         import_matplotlib(opts.pop_up_graphs)
-
 
     data = []
 
@@ -461,5 +461,6 @@ def main():
                                            log=True, filter=family)
 
         draw_histograms_of_durations(times, basename)
+
 
 main()
