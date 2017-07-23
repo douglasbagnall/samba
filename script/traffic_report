@@ -291,7 +291,7 @@ def draw_comparison_of_versions(data, log=False):
         plt.cla()
 
 
-    print series['nbns:0']
+    print(series['nbns:0'])
 
 
 def draw_histograms_of_durations(times, basename):
@@ -331,7 +331,7 @@ def draw_comparison_of_summaries(summaries, absolute=False,
         common_keys &= set(d)
 
     if only_common:
-        for k in totals.keys():
+        for k in list(totals.keys()):
             if k not in common_keys:
                 del totals[k]
 
@@ -418,14 +418,14 @@ def main():
             if opts.summaries:
                 parser = traffic_report.summary_parser
             else:
-                parser = traffic_report.get_file_parser(f.next())
+                parser = traffic_report.get_file_parser(next(f))
             data.append((filename,
                          basename,
                          [parser(line) for line in f]))
             f.close()
 
     except IOError as e:
-        print "Could not read %s: %s" % (filename, e)
+        print("Could not read %s: %s" % (filename, e))
         sys.exit(1)
 
     if opts.summaries:
@@ -442,7 +442,7 @@ def main():
         sys.exit()
 
     if len(data) > 1:
-        print "looking at %d files" % len(data)
+        print("looking at %d files" % len(data))
         draw_comparison_of_versions(data)
         draw_comparison_of_versions(data, log=True)
         sys.exit()
