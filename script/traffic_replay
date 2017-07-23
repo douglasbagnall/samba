@@ -122,7 +122,7 @@ def main():
         return
 
     if opts.clean_up:
-        print >>sys.stderr, "Removing user and machine accounts"
+        print("Removing user and machine accounts", file=sys.stderr)
         lp    = sambaopts.get_loadparm()
         creds = credopts.get_credentials(lp)
         ldb   = traffic.openLdb(host, creds, lp)
@@ -131,17 +131,19 @@ def main():
 
     if summary:
         if not os.path.exists(summary):
-            print >>sys.stderr, "Summary file %s doesn't exist" % summary
+            print("Summary file %s doesn't exist" % summary, file=sys.stderr)
             sys.exit(1)
     # the summary-file can be ommitted for --generate-users-only and
     # --cleanup-up, but it should be specified in all other cases
     elif not opts.generate_users_only:
-        print >>sys.stderr, ("No summary-file specified to replay traffic from")
+        print("No summary-file specified to replay traffic from",
+              file=sys.stderr)
         sys.exit(1)
 
     if not opts.fixed_password:
-        print >>sys.stderr, ("Please use --fixed-password to specify a password"
-                             " for the users created as part of this test")
+        print("Please use --fixed-password to specify a password"
+              " for the users created as part of this test",
+              file=sys.stderr)
         sys.exit(1)
 
     lp = sambaopts.get_loadparm()
@@ -153,50 +155,53 @@ def main():
     else:
         domain = lp.get("workgroup")
         if domain == "WORKGROUP":
-            print >>sys.stderr, ("NETBIOS domain does not appear to be specified, "
-                                 "use the --workgroup option")
+            print("NETBIOS domain does not appear to be specified, "
+                  "use the --workgroup option", file=sys.stderr)
             sys.exit(1)
 
     if not opts.realm and not lp.get('realm'):
-        print >>sys.stderr, "Realm not specified, use the --realm option"
+        print("Realm not specified, use the --realm option", file=sys.stderr)
         sys.exit(1)
 
     if opts.generate_users_only and not (opts.number_of_users or
                                          opts.number_of_groups):
-        print >>sys.stderr, ("Please specify the number of users and/or groups "
-                             "to generate.")
+        print("Please specify the number of users and/or groups to generate.",
+              file=sys.stderr)
         sys.exit(1)
 
     if opts.group_memberships and opts.average_groups_per_user:
-        print >>sys.stderr, ("--group-memberships and --average-groups-per-user"
-                             " are incompatible options - use one or the other")
+        print("--group-memberships and --average-groups-per-user are "
+              "incompatible options - use one or the other",
+              file=sys.stderr)
         sys.exit(1)
 
     if not opts.number_of_groups and opts.average_groups_per_user:
-        print >>sys.stderr, ("--average-groups-per-user requires "
-                             "--number-of-groups")
+        print("--average-groups-per-user requires --number-of-groups",
+              file=sys.stderr)
         sys.exit(1)
 
     if not opts.number_of_groups and opts.group_memberships:
-        print >>sys.stderr, "--group-memberships requires --number-of-groups"
+        print("--group-memberships requires --number-of-groups",
+              file=sys.stderr)
         sys.exit(1)
 
     if opts.timing_data not in ('-', None):
         try:
             open(opts.timing_data, 'w').close()
         except IOError as e:
-            print >> sys.stderr, ("the supplied timing data destination "
-                                  "(%s) is not writable" % opts.timing_data)
-            print >> sys.stderr, e
+            print("the supplied timing data destination (%s) is not writable" %
+                  opts.timing_data, file=sys.stderr)
+            print(e, file=sys.stderr)
             sys.exit()
 
     if opts.traffic_summary not in ('-', None):
         try:
             open(opts.traffic_summary, 'w').close()
         except IOError as e:
-            print >> sys.stderr, ("the supplied traffic summary destination "
-                                  "(%s) is not writable" % opts.traffic_summary)
-            print >> sys.stderr, e
+            print("the supplied traffic summary destination "
+                  "(%s) is not writable" % opts.traffic_summary,
+                  file=sys.stderr)
+            print(e, file=sys.stderr)
             sys.exit()
 
     traffic.DEBUG_LEVEL = opts.debuglevel
@@ -211,10 +216,11 @@ def main():
             conversations, interval, duration, dns_counts = \
                                             traffic.ingest_summaries([summary])
 
-            print >>sys.stderr, ("Using conversations from the traffic summary "
-                                 "file specified")
+            print("Using conversations from the traffic summary file specified",
+                  file=sys.stderr)
 
-            # honour the specified duration if it's different to the capture duration
+            # honour the specified duration if it's different to the
+            # capture duration
             if opts.duration is not None:
                 duration = opts.duration
 
@@ -227,14 +233,14 @@ def main():
             try:
                 model.load(summary)
             except ValueError:
-                print >>sys.stderr, ("Could not parse %s. The summary file should "
-                                     "be the output from either the "
-                                     "traffic_summary.pl or traffic_learner script"
-                                     % summary)
+                print("Could not parse %s. The summary file should be the "
+                      "output from either the traffic_summary.pl or "
+                      "traffic_learner script" % summary,
+                      file=sys.stderr)
                 sys.exit()
 
-            print >>sys.stderr, ("Using the specified model file to "
-                                 "generate conversations")
+            print("Using the specified model file to generate conversations",
+                  file=sys.stderr)
 
             conversations = model.generate_conversations(opts.scale_traffic,
                                                          duration,
@@ -251,9 +257,9 @@ def main():
         print('=' * 72, file=sys.stderr)
 
     if opts.number_of_users and opts.number_of_users < len(conversations):
-        print >>sys.stderr, ("--number-of-users (%d) is less than the "
-                             "number of conversations to replay (%d)"
-                             %(opts.number_of_users, len(conversations)))
+        print("--number-of-users (%d) is less than the "
+              "number of conversations to replay (%d)"
+               % (opts.number_of_users, len(conversations)), file=sys.stderr)
         sys.exit(1)
 
     number_of_users = max(opts.number_of_users, len(conversations))
@@ -261,23 +267,27 @@ def main():
 
     if not opts.group_memberships and opts.average_groups_per_user:
         opts.group_memberships = opts.average_groups_per_user * number_of_users
-        print >>sys.stderr, ("Using %d group-memberships based on %u average "
-                             "memberships for %d users"
-                             %(opts.group_memberships,
-                               opts.average_groups_per_user, number_of_users))
+        print("Using %d group-memberships based on %u average "
+              "memberships for %d users" % (opts.group_memberships,
+                                            opts.average_groups_per_user,
+                                            number_of_users),
+              file=sys.stderr)
 
     if opts.group_memberships > max_memberships:
-        print >>sys.stderr, ("The group memberships specified (%d) exceeds "
-                             "the total users (%d) * total groups (%d)"
-                             %(opts.group_memberships, number_of_users,
-                              opts.number_of_groups))
+        print("The group memberships specified (%d) exceeds "
+              "the total users (%d) * total groups (%d)"
+              % (opts.group_memberships,
+                 number_of_users,
+                 opts.number_of_groups),
+              file=sys.stderr)
         sys.exit(1)
 
     try:
         ldb = traffic.openLdb(host, creds, lp)
     except:
-        print >>sys.stderr, ("\nInitial LDAP connection failed! Did you supply "
-                             "a DNS host name and the correct credentials?")
+        print("\nInitial LDAP connection failed! Did you supply "
+              "a DNS host name and the correct credentials?",
+              file=sys.stderr)
         sys.exit(1)
 
     if opts.generate_users_only:
@@ -290,7 +300,7 @@ def main():
         sys.exit()
 
     tempdir = tempfile.mkdtemp(prefix="samba_tg_")
-    print >>sys.stderr, "Using temp dir %s" % tempdir
+    print("Using temp dir %s" % tempdir, file=sys.stderr)
 
     traffic.generate_users_and_groups(ldb,
                                       opts.instance_id,
@@ -313,14 +323,14 @@ def main():
         else:
             summary_dest = open(opts.traffic_summary, 'w')
 
-        print >>sys.stderr, "Writing traffic summary"
+        print("Writing traffic summary", file=sys.stderr)
         summaries = []
         for c in conversations:
             summaries += c.replay_as_summary_lines()
 
         summaries.sort()
         for (time, line) in summaries:
-            print >>summary_dest, line
+            print(line, file=summary_dest)
 
         exit(0)
 
@@ -348,11 +358,11 @@ def main():
     else:
         timing_dest = open(opts.timing_data, 'w')
 
-    print >>sys.stderr, "Generating statistics"
+    print("Generating statistics", file=sys.stderr)
     traffic.generate_stats(statsdir, timing_dest)
 
     if not opts.preserve_tempdir:
-        print >>sys.stderr, "Removing temporary directory"
+        print("Removing temporary directory", file=sys.stderr)
         shutil.rmtree(tempdir)
 
 main()
