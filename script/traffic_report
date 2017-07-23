@@ -194,6 +194,11 @@ def draw_time_vs_duration_by_types(data, basename='', log=False,
         plt.show()
 
 
+def draw_kde_time_vs_duration_by_types(data, basename='', log=False,
+                                       dots={}, filter=''):
+    pass
+
+
 def dict_as_key_sorted_lists(d):
     keys, values = [], []
     for k, v in sorted(d.items()):
@@ -300,7 +305,8 @@ def draw_histograms_of_durations(times, basename):
         plt.cla()
 
 
-def draw_comparison_of_summaries(summaries, abs=False, only_common=True,
+def draw_comparison_of_summaries(summaries, absolute=False,
+                                 only_common=True,
                                  logscale=False,
                                  name='traffic-summaries'):
     fig = plt.figure()
@@ -344,7 +350,7 @@ def draw_comparison_of_summaries(summaries, abs=False, only_common=True,
     for basename, d in data.items():
         colour = colours[i]
         values = [d[k] for k in keys]
-        if not abs:
+        if not absolute:
             common_values = [d[k] for k in common_keys]
             vsum = float(sum(common_values)) or 1.0
             values = [x / vsum for x in values]
