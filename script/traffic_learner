@@ -37,12 +37,13 @@ def main():
     args = parser.parse_args()
 
     if not args.out:
-        print >> sys.stdout, "No output file was specified to write the model to."
-        print >> sys.stdout, "Please specify a filename using the --out option."
+        print("No output file was specified to write the model to.\n"
+              "Please specify a filename using the --out option.",
+              file=sys.stderr)
         return
 
     if args.SUMMARY_FILE is sys.stdin:
-        print >> sys.stderr, "reading from STDIN..."
+        print("reading from STDIN...", file=sys.stderr)
 
     (conversations,
      interval,
@@ -51,7 +52,7 @@ def main():
                                             dns_mode=args.dns_mode)
 
     model = traffic.TrafficModel()
-    print >> sys.stderr, "learning model"
+    print("learning model", file=sys.stderr)
     if args.dns_mode == 'count':
         model.learn(conversations, dns_counts)
     else:
