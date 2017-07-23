@@ -86,18 +86,18 @@ DEBUG_LEVEL = 0
 def debug(level, msg, *args):
     if level <= DEBUG_LEVEL:
         if not args:
-            print >> sys.stderr, msg
+            print(msg, file=sys.stderr)
         else:
-            print >> sys.stderr, msg % tuple(args)
+            print(msg % tuple(args), file=sys.stderr)
 
 
 def debug_lineno(*args):
     tb = traceback.extract_stack(limit=2)
-    print >> sys.stderr, (" %s:" "\033[01;33m"
-                          "%s " "\033[00m" % (tb[0][2], tb[0][1])),
+    print(" %s:" "\033[01;33m%s " "\033[00m" % (tb[0][2], tb[0][1]),
+          end=' ', file=sys.stderr)
     for a in args:
-        print >> sys.stderr, a
-    print >> sys.stderr
+        print(a, file=sys.stderr)
+    print(file=sys.stderr)
     sys.stderr.flush()
 
 
@@ -107,7 +107,7 @@ def random_colour_print():
 
     def p(*args):
         for a in args:
-            print >>sys.stderr, "%s%s\033[00m" % (prefix, a)
+            print("%s%s\033[00m" % (prefix, a), file=sys.stderr)
 
     return p
 
@@ -203,8 +203,9 @@ class Packet(object):
             fn = getattr(traffic_packets, fn_name)
 
         except AttributeError as e:
-            print >>sys.stderr, "Conversation(%s) Missing handler %s" % \
-                (conversation.conversation_id, fn_name)
+            print("Conversation(%s) Missing handler %s" %
+                  (conversation.conversation_id, fn_name),
+                  file=sys.stderr)
             return
 
         # Don't display a message for kerberos packets, they're not directly
@@ -247,7 +248,7 @@ class Packet(object):
             if fn is traffic_packets.null_packet:
                 return False
         except AttributeError:
-            print >>sys.stderr, "missing packet %s" % fn_name
+            print("missing packet %s" % fn_name, file=sys.stderr)
             return False
         return True
 
@@ -297,7 +298,7 @@ class ReplayContext(object):
         self.last_netlogon_bad        = False
         self.last_samlogon_bad        = False
         self.generate_ldap_search_tables()
-        self.next_conversation_id = itertools.count().next
+        self.next_conversation_id = itertools.count().__next__
 
     def generate_ldap_search_tables(self):
         session = system_session()
@@ -328,10 +329,7 @@ class ReplayContext(object):
 
         # extend the map in case we are working with a different
         # number of DC components.
-        # for k, v in self.dn_map.items():
-        #     print >>sys.stderr, k, len(v)
-
-        for k, v in dn_map.items():
+        for k, v in list(dn_map.items()):
             if k[-3:] != ',DC':
                 continue
             p = k[:-3]
@@ -340,7 +338,7 @@ class ReplayContext(object):
             for i in range(5):
                 p += ',DC'
                 if p != k and p in dn_map:
-                    print >> sys.stderr, 'dn_map collison %s %s' % (k, p)
+                    print('dn_map collison %s %s' % (k, p), file=sys.stderr)
                     continue
                 dn_map[p] = dn_map[k]
 
@@ -780,14 +778,15 @@ class Conversation(object):
         gap = t - now
         # we are replaying strictly in order, so it is safe to sleep
         # in the main process if the gap is big enough. This reduces
-        # the number of concurrent threads, which allows us to make
+        # the number of concurrent processes, which allows us to make
         # larger loads.
         if gap > 0.15 and False:
-            print >>sys.stderr, "sleeping for %f in main process" % (gap - 0.1)
+            print("sleeping for %f in main process" % (gap - 0.1),
+                  file=sys.stderr)
             time.sleep(gap - 0.1)
             now = time.time() - start
             gap = t - now
-            print >>sys.stderr, "gap is now %f" % gap
+            print("gap is now %f" % gap, file=sys.stderr)
 
         self.conversation_id = context.next_conversation_id()
         pid = os.fork()
@@ -816,8 +815,8 @@ class Conversation(object):
             self.msg("starting %s [miss %.3f pid %d]" % (self, miss, pid))
             self.replay(context)
         except Exception:
-            print >>sys.stderr,\
-                ("EXCEPTION in child PID %d, conversation %s" % (pid, self))
+            print("EXCEPTION in child PID %d, conversation %s" % (pid, self),
+                  file=sys.stderr)
             traceback.print_exc(sys.stderr)
         finally:
             sys.stderr.close()
@@ -936,7 +935,7 @@ def ingest_summaries(files, dns_mode='count'):
     for f in files:
         if isinstance(f, str):
             f = open(f)
-        print >>sys.stderr, "Ingesting %s" % (f.name,)
+        print("Ingesting %s" % (f.name,), file=sys.stderr)
         for line in f:
             p = Packet(line)
             if p.protocol == 'dns' and dns_mode != 'include':
@@ -952,7 +951,7 @@ def ingest_summaries(files, dns_mode='count'):
     start_time = min(p.timestamp for p in packets)
     last_packet = max(p.timestamp for p in packets)
 
-    print >>sys.stderr, "gathering packets into conversations"
+    print("gathering packets into conversations", file=sys.stderr)
     conversations = OrderedDict()
     for p in packets:
         p.timestamp -= start_time
@@ -991,7 +990,7 @@ def guess_server_address(conversations):
 
 def stringify_keys(x):
     y = {}
-    for k, v in x.iteritems():
+    for k, v in x.items():
         k2 = '\t'.join(k)
         y[k2] = v
     return y
@@ -1002,7 +1001,7 @@ def stringify_keys(x):
 
 def unstringify_keys(x):
     y = {}
-    for k, v in x.iteritems():
+    for k, v in x.items():
         t = tuple(str(k).split('\t'))
         y[t] = v
     return y
@@ -1062,12 +1061,12 @@ class TrafficModel(object):
 
     def save(self, f):
         ngrams = {}
-        for k, v in self.ngrams.iteritems():
+        for k, v in self.ngrams.items():
             k = '\t'.join(k)
             ngrams[k] = dict(Counter(v))
 
         query_details = {}
-        for k, v in self.query_details.iteritems():
+        for k, v in self.query_details.items():
             query_details[k] = dict(Counter('\t'.join(x) if x else '-'
                                             for x in v))
 
@@ -1090,15 +1089,15 @@ class TrafficModel(object):
 
         d = json.load(f)
 
-        for k, v in d['ngrams'].iteritems():
+        for k, v in d['ngrams'].items():
             k = tuple(str(k).split('\t'))
             values = self.ngrams.setdefault(k, [])
-            for p, count in v.iteritems():
+            for p, count in v.items():
                 values.extend([str(p)] * count)
 
-        for k, v in d['query_details'].iteritems():
+        for k, v in d['query_details'].items():
             values = self.query_details.setdefault(str(k), [])
-            for p, count in v.iteritems():
+            for p, count in v.items():
                 if p == '-':
                     values.extend([()] * count)
                 else:
@@ -1173,8 +1172,8 @@ class TrafficModel(object):
                 conversations.append(c)
             client += 1
 
-        print >> sys.stderr, ("we have %d conversations at rate %f" %
-                              (len(conversations), rate))
+        print("we have %d conversations at rate %f" %
+              (len(conversations), rate), file=sys.stderr)
         conversations.sort()
         return conversations
 
@@ -1320,12 +1319,12 @@ def replay(conversations,
                             **kwargs)
 
     if len(accounts) < len(conversations):
-        print >> sys.stderr, ("we have %d accounts but %d conversations" %
-                              (accounts, conversations))
+        print("we have %d accounts but %d conversations" %
+              (accounts, conversations), file=sys.stderr)
 
-    cstack = zip(sorted(conversations,
-                        key=lambda x: x.start_time, reverse=True),
-                 accounts)
+    cstack = list(zip(sorted(conversations,
+                             key=lambda x: x.start_time, reverse=True),
+                      accounts))
 
     start = time.time()
 
@@ -1334,12 +1333,12 @@ def replay(conversations,
         # to start. Conversations other than the last could still be
         # going, but we don't care.
         duration = cstack[0][0].packets[-1].timestamp + 1.0
-        print >>sys.stderr, "We will stop after %.1f seconds" % duration
+        print("We will stop after %.1f seconds" % duration, file=sys.stderr)
 
     end = start + duration
 
-    print("Replaying traffic for %u conversations over %d seconds"
-          % (len(conversations), duration))
+    print("Replaying traffic for %u conversations over %d seconds" %
+          (len(conversations), duration))
 
     children = {}
     if dns_rate:
@@ -1366,12 +1365,12 @@ def replay(conversations,
                 elapsed = t - st
                 fork_time += elapsed
                 fork_n += 1
-                print >>sys.stderr, "forked %s in pid %s (in %fs)" % (c, pid,
-                                                                      elapsed)
+                print("forked %s in pid %s (in %fs)" %
+                      (c, pid, elapsed), file=sys.stderr)
 
             if fork_n:
-                print >>sys.stderr, ("forked %d times in %f seconds (avg %f)" %
-                                     (fork_n, fork_time, fork_time / fork_n))
+                print("forked %d times in %f seconds (avg %f)" %
+                      (fork_n, fork_time, fork_time / fork_n), file=sys.stderr)
             elif cstack:
                 debug(2, "no forks in batch ending %f" % batch_end)
 
@@ -1385,21 +1384,20 @@ def replay(conversations,
                     break
                 if pid:
                     c = children.pop(pid, None)
-                    print >>sys.stderr, ("process %d finished conversation %s;"
-                                         " %d to go" %
-                                         (pid, c, len(children)))
+                    print("process %d finished conversation %s; %d to go" %
+                          (pid, c, len(children)), file=sys.stderr)
 
             if time.time() >= end:
-                print >>sys.stderr, "time to stop"
+                print("time to stop", file=sys.stderr)
                 break
 
     except Exception:
-        print >>sys.stderr, "EXCEPTION in parent"
+        print("EXCEPTION in parent", file=sys.stderr)
         traceback.print_exc()
     finally:
         for s in (15, 15, 9):
-            print >>sys.stderr, ("killing %d children with -%d" %
-                                 (len(children), s))
+            print("killing %d children with -%d" %
+                  (len(children), s), file=sys.stderr)
             for pid in children:
                 try:
                     os.kill(pid, s)
@@ -1416,9 +1414,8 @@ def replay(conversations,
                         raise
                 if pid != 0:
                     c = children.pop(pid, None)
-                    print >>sys.stderr, ("kill -%d %d KILLED conversation %s; "
-                                         "%d to go" %
-                                         (s, pid, c, len(children)))
+                    print("kill -%d %d KILLED conversation %s; %d to go" %
+                          (s, pid, c, len(children)), file=sys.stderr)
                 if time.time() >= end:
                     break
 
@@ -1427,7 +1424,7 @@ def replay(conversations,
             time.sleep(1)
 
         if children:
-            print >>sys.stderr, "%d children are missing" % len(children)
+            print("%d children are missing" % len(children), file=sys.stderr)
 
         # there may be stragglers that were forked just as ^C was hit
         # and don't appear in the list of children. We can get them
@@ -1437,7 +1434,7 @@ def replay(conversations,
         try:
             os.killpg(0, 2)
         except KeyboardInterrupt:
-            print >>sys.stderr, "ignoring fake ^C"
+            print("ignoring fake ^C", file=sys.stderr)
 
 
 def openLdb(host, creds, lp):
@@ -1498,8 +1495,8 @@ def generate_replay_accounts(ldb, instance_id, number, password):
 
 
 def generate_traffic_accounts(ldb, instance_id, number, password):
-    print >>sys.stderr, ("Generating machine and conversation accounts, "
-                         "as required for %d conversations" % number)
+    print("Generating machine and conversation accounts, "
+          "as required for %d conversations" % number, file=sys.stderr)
     added = 0
     for i in range(number, 0, -1):
         try:
@@ -1513,7 +1510,7 @@ def generate_traffic_accounts(ldb, instance_id, number, password):
             else:
                 raise
     if added > 0:
-        print >>sys.stderr, "Added %d new machine accounts" % added
+        print("Added %d new machine accounts" % added, file=sys.stderr)
 
     added = 0
     for i in range(number, 0, -1):
@@ -1529,12 +1526,13 @@ def generate_traffic_accounts(ldb, instance_id, number, password):
                 raise
 
     if added > 0:
-        print >>sys.stderr, "Added %d new user accounts" % added
+        print("Added %d new user accounts" % added, file=sys.stderr)
 
 
 def create_machine_account(ldb, instance_id, netbios_name, machinepass):
     ou = ou_name(ldb, instance_id)
     dn = "cn=%s,%s" % (netbios_name, ou)
+    # XXXX TODO FIXME EMERGENCY
     utf16pw = unicode(
         '"' + machinepass.encode('utf-8') + '"', 'utf-8'
     ).encode('utf-16-le')
@@ -1554,6 +1552,7 @@ def create_machine_account(ldb, instance_id, netbios_name, machinepass):
 def create_user_account(ldb, instance_id, username, userpass):
     ou = ou_name(ldb, instance_id)
     user_dn = "cn=%s,%s" % (username, ou)
+    # XXXX TODO FIXME EMERGENCY
     utf16pw = unicode(
         '"' + userpass.encode('utf-8') + '"', 'utf-8'
     ).encode('utf-16-le')
@@ -1645,29 +1644,30 @@ def generate_users_and_groups(ldb, instance_id, password,
 
     create_ou(ldb, instance_id)
 
-    print >>sys.stderr, "Generating dummy user accounts"
+    print("Generating dummy user accounts", file=sys.stderr)
     users_added = generate_users(ldb, instance_id, number_of_users, password)
 
     if number_of_groups > 0:
-        print >>sys.stderr, "Generating dummy groups"
+        print("Generating dummy groups", file=sys.stderr)
         groups_added = generate_groups(ldb, instance_id, number_of_groups)
 
     if group_memberships > 0:
-        print >>sys.stderr, "Assigning users to groups"
+        print("Assigning users to groups", file=sys.stderr)
         assignments = assign_groups(number_of_groups,
                                     groups_added,
                                     number_of_users,
                                     users_added,
                                     group_memberships)
-        print >>sys.stderr, "Adding users to groups"
+        print("Adding users to groups", file=sys.stderr)
         add_users_to_groups(ldb, instance_id, assignments)
 
     if (groups_added > 0 and users_added == 0 and
        number_of_groups != groups_added):
-        print >>sys.stderr, "Warning: the added groups will contain no members"
+        print("Warning: the added groups will contain no members",
+              file=sys.stderr)
 
-    print >>sys.stderr, ("Added %d users, %d groups and %d group memberships" %
-                         (users_added, groups_added, len(assignments)))
+    print("Added %d users, %d groups and %d group memberships" %
+          (users_added, groups_added, len(assignments)), file=sys.stderr)
 
 
 def assign_groups(number_of_groups,
@@ -1792,7 +1792,7 @@ def generate_stats(statsdir, timing_file):
 
                 except (ValueError, IndexError):
                     # not a valid line print and ignore
-                    print >>sys.stderr, line
+                    print(line, file=sys.stderr)
                     pass
     duration = last - first
     if successful == 0:
